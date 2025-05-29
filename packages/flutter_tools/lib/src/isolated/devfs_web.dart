@@ -119,22 +119,18 @@ class WebExpressionCompiler implements ExpressionCompiler {
 }
 
 class ProxyRule {
-  final String path;
+  final String pathPrefix;
   final String target;
 
   ProxyRule({required String path, required this.target})
-      : path = path.startsWith('/') ? path.substring(1) : path;
+      : pathPrefix = path.startsWith('/') ? path.substring(1) : path;
 
   RegExp? _pathRegExp;
   RegExp get pathRegExp => _pathRegExp ??= RegExp(
-      '^' + RegExp.escape(path) + r'($|/.*)');
+      '^' + RegExp.escape(pathPrefix) + '(.*)');
 
-  String getRelativePath(String requestPath) {
-    if (requestPath.startsWith(path)) {
-      return requestPath.substring(path.length);
-    }
-    return requestPath;
-  }
+  @override
+  String toString() => 'ProxyRule(pathPrefix: "$pathPrefix", target: "$target")';
 }
 /// A web server which handles serving JavaScript and assets.
 ///
@@ -465,50 +461,55 @@ class WebAssetServer implements AssetReader {
     shelf.Middleware apiProxyMiddleware(List<ProxyRule> proxyRules) {
       final Map<ProxyRule, shelf.Handler> ruleHandlers = {
         for (var rule in proxyRules)
+          // The proxy handler is now configured with the *base URL* of the target.
+          // The actual path will be appended to this.
           rule: shelf.proxyHandler(Uri.parse(rule.target)),
       };
 
       return (shelf.Handler innerHandler) {
         return (shelf.Request request) async {
-          // Normalize the incoming request path for consistent matching
           final normalizedRequestPath = request.url.path.startsWith('/')
               ? request.url.path.substring(1)
               : request.url.path;
 
-          print('Received request for (normalized): $normalizedRequestPath');
-          print('Defined proxy rules: $proxyRules'); // More descriptive logging
+          print('--- Debugging Proxy Middleware ---');
+          print('Incoming Request Path: "${request.url.path}"'); // Original path from request
+          print('Normalized Request Path for Match: "$normalizedRequestPath"');
+          print('Defined Proxy Rules: $proxyRules');
 
           for (final rule in proxyRules) {
-            // Use the normalized request path for regex matching
-            if (rule.pathRegExp.hasMatch(normalizedRequestPath)) {
-              print('Matching proxy rule for path: ${rule.path} (defined as: ${rule.path})'); // Log the normalized rule path
+            final match = rule.pathRegExp.firstMatch(normalizedRequestPath);
 
-              // pathToSendToBackend will now be correct because both sides are normalized
-              final pathToSendToBackend = normalizedRequestPath.substring(rule.path.length);
+            if (match != null) {
+              print('MATCHED! Rule: ${rule.pathPrefix}');
+              print('RegExp Pattern for Rule: "${rule.pathRegExp.pattern}"');
 
-              // Create a new Request object with the rewritten URL.
-              final rewrittenRequest = request.change(path: pathToSendToBackend);
-
-              // Retrieve the pre-created proxy handler for this rule.
+              final remainingPathFromRequest = match.group(1) ?? '';
+              final pathForBackend = remainingPathFromRequest;
+              final rewrittenRequest = request.change(path: pathForBackend);
               final ruleProxyHandler = ruleHandlers[rule]!;
 
-              print('Proxying original path ${request.url.path} (rewritten path for handler: ${pathToSendToBackend}) to target: ${rule.target}');
-              print('Full URL proxy handler will attempt to hit: ${rule.target}${pathToSendToBackend}'); // Very helpful debug log
+              print('Proxying original path "${request.url.path}"');
+              print('  --> Stripped prefix: "${rule.pathPrefix}"');
+              print('  --> Remaining path to send to backend: "${pathForBackend}"');
+              print('  --> Target Backend Base URL: "${rule.target}"');
+              print('  --> Full URL proxy handler will attempt to hit: ${rule.target}${pathForBackend}');
+
               return ruleProxyHandler(rewrittenRequest);
             }
           }
-          print('No matching proxy rule found for: ${request.url.path}. Passing to innerHandler.');
+          print('No matching proxy rule found for: "${request.url.path}". Passing to innerHandler.');
           return innerHandler(request);
         };
       };
     }
 
-    shelf.Pipeline pipeline = const shelf.Pipeline();
     final myTestProxyRules = [
-      ProxyRule(path: '/users/', target: 'http://localhost:8081/api/hello/'),
+      ProxyRule(path: '/users/', target: 'http://localhost:8081/'),
       ProxyRule(path: '/api/', target: 'http://localhost:8081/'),
     ];
 
+    shelf.Pipeline pipeline = const shelf.Pipeline();
     pipeline = pipeline.addMiddleware(apiProxyMiddleware(myTestProxyRules));
 
     if (enableDwds) {
