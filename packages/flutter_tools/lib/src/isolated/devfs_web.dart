@@ -13,6 +13,7 @@ import 'package:mime/mime.dart' as mime;
 import 'package:package_config/package_config.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf;
+import 'package:shelf_proxy/shelf_proxy.dart' as shelf;
 import 'package:vm_service/vm_service.dart' as vm_service;
 
 import '../artifacts.dart';
@@ -117,6 +118,24 @@ class WebExpressionCompiler implements ExpressionCompiler {
   Future<bool> updateDependencies(Map<String, ModuleInfo> modules) async => true;
 }
 
+class ProxyRule {
+  final String path;
+  final String target;
+
+  ProxyRule({required String path, required this.target})
+      : path = path.startsWith('/') ? path.substring(1) : path;
+
+  RegExp? _pathRegExp;
+  RegExp get pathRegExp => _pathRegExp ??= RegExp(
+      '^' + RegExp.escape(path) + r'($|/.*)');
+
+  String getRelativePath(String requestPath) {
+    if (requestPath.startsWith(path)) {
+      return requestPath.substring(path.length);
+    }
+    return requestPath;
+  }
+}
 /// A web server which handles serving JavaScript and assets.
 ///
 /// This is only used in development mode.
@@ -442,7 +461,56 @@ class WebAssetServer implements AssetReader {
           connectedWebDeviceIds.isNotEmpty &&
           connectedWebDeviceIds.contains(globals.deviceManager?.specifiedDeviceId ?? 'chrome'),
     );
+
+    shelf.Middleware apiProxyMiddleware(List<ProxyRule> proxyRules) {
+      final Map<ProxyRule, shelf.Handler> ruleHandlers = {
+        for (var rule in proxyRules)
+          rule: shelf.proxyHandler(Uri.parse(rule.target)),
+      };
+
+      return (shelf.Handler innerHandler) {
+        return (shelf.Request request) async {
+          // Normalize the incoming request path for consistent matching
+          final normalizedRequestPath = request.url.path.startsWith('/')
+              ? request.url.path.substring(1)
+              : request.url.path;
+
+          print('Received request for (normalized): $normalizedRequestPath');
+          print('Defined proxy rules: $proxyRules'); // More descriptive logging
+
+          for (final rule in proxyRules) {
+            // Use the normalized request path for regex matching
+            if (rule.pathRegExp.hasMatch(normalizedRequestPath)) {
+              print('Matching proxy rule for path: ${rule.path} (defined as: ${rule.path})'); // Log the normalized rule path
+
+              // pathToSendToBackend will now be correct because both sides are normalized
+              final pathToSendToBackend = normalizedRequestPath.substring(rule.path.length);
+
+              // Create a new Request object with the rewritten URL.
+              final rewrittenRequest = request.change(path: pathToSendToBackend);
+
+              // Retrieve the pre-created proxy handler for this rule.
+              final ruleProxyHandler = ruleHandlers[rule]!;
+
+              print('Proxying original path ${request.url.path} (rewritten path for handler: ${pathToSendToBackend}) to target: ${rule.target}');
+              print('Full URL proxy handler will attempt to hit: ${rule.target}${pathToSendToBackend}'); // Very helpful debug log
+              return ruleProxyHandler(rewrittenRequest);
+            }
+          }
+          print('No matching proxy rule found for: ${request.url.path}. Passing to innerHandler.');
+          return innerHandler(request);
+        };
+      };
+    }
+
     shelf.Pipeline pipeline = const shelf.Pipeline();
+    final myTestProxyRules = [
+      ProxyRule(path: '/users/', target: 'http://localhost:8081/api/hello/'),
+      ProxyRule(path: '/api/', target: 'http://localhost:8081/'),
+    ];
+
+    pipeline = pipeline.addMiddleware(apiProxyMiddleware(myTestProxyRules));
+
     if (enableDwds) {
       pipeline = pipeline.addMiddleware(middleware);
       pipeline = pipeline.addMiddleware(dwds.middleware);
