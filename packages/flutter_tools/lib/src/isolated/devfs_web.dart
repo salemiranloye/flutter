@@ -71,22 +71,22 @@ const String _kDefaultIndex = '''
 ''';
 
 class DevConfig {
-  final List<String> headers;
-  final String host;
-  final int port;
+  final List<String>? headers;
+  final String? host;
+  final int? port;
   final HttpsConfig? https;
   final BrowserConfig? browser;
-  final bool experimentalHotReload;
-  final Map<String, ProxyConfig> proxy;
+  final bool? experimentalHotReload;
+  final Map<String, ProxyConfig>? proxy;
 
   DevConfig({
-    required this.headers,
-    required this.host,
-    required this.port,
+    this.headers,
+    this.host,
+    this.port,
     this.https,
     this.browser,
-    required this.experimentalHotReload,
-    required this.proxy,
+    this.experimentalHotReload,
+    this.proxy = const {},
   });
 
   factory DevConfig.fromYaml(YamlMap serverYaml) {
@@ -104,8 +104,8 @@ class DevConfig {
 
     return DevConfig(
       headers: headers,
-      host: serverYaml['host'] as String,
-      port: serverYaml['port'] as int,
+      host: serverYaml['host'] as String?,
+      port: serverYaml['port'] as int?,
       https:
           serverYaml['https'] is YamlMap
               ? HttpsConfig.fromYaml(serverYaml['https'] as YamlMap)
@@ -245,9 +245,9 @@ Future<DevConfig?> _loadDevConfig() async {
       globals.printStatus('\nParsed devconfig.yaml:');
       globals.printStatus(config.toString());
 
-      if (config.proxy.isNotEmpty) {
+      if (config.proxy?.isNotEmpty == true) {
         globals.printStatus(
-          'Initializing web server with custom configuration. Found ${config.proxy.length} proxy rules.',
+          'Initializing web server with custom configuration. Found ${config.proxy?.length ?? 0} proxy rules.',
         );
       } else {
         globals.printStatus('No proxy rules found.');
@@ -741,7 +741,7 @@ class WebAssetServer implements AssetReader {
     router.all('/<unmatched|.*>', server.handleRequest);
 
     final shelf.Handler routerHandler = pipeline.addHandler(router.call);
-   final shelf.Cascade cascade = shelf.Cascade()
+    final shelf.Cascade cascade = shelf.Cascade()
       .add(dwds.handler)
       .add(routerHandler)
       .add(dwdsHandler);
