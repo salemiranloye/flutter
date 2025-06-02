@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:io' as io;
 
 import 'package:dwds/data/build_result.dart';
 import 'package:dwds/dwds.dart';
@@ -13,7 +14,10 @@ import 'package:mime/mime.dart' as mime;
 import 'package:package_config/package_config.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf;
+import 'package:shelf_proxy/shelf_proxy.dart';
+import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:vm_service/vm_service.dart' as vm_service;
+import 'package:yaml/yaml.dart';
 
 import '../artifacts.dart';
 import '../asset.dart';
@@ -65,6 +69,208 @@ const String _kDefaultIndex = '''
     </body>
 </html>
 ''';
+
+class DevConfig {
+  final List<String> headers;
+  final String host;
+  final int port;
+  final HttpsConfig? https;
+  final BrowserConfig? browser;
+  final bool experimentalHotReload;
+  final Map<String, ProxyConfig> proxy;
+
+  DevConfig({
+    required this.headers,
+    required this.host,
+    required this.port,
+    this.https,
+    this.browser,
+    required this.experimentalHotReload,
+    required this.proxy,
+  });
+
+  factory DevConfig.fromYaml(YamlMap serverYaml) {
+    final List<String> headers =
+        (serverYaml['headers'] as YamlList?)?.map((e) => e.toString()).toList() ?? [];
+
+    final Map<String, ProxyConfig> proxyMap = {};
+    if (serverYaml['proxy'] is YamlMap) {
+      (serverYaml['proxy'] as YamlMap).forEach((key, value) {
+        if (value is YamlMap) {
+          proxyMap[key.toString()] = ProxyConfig.fromYaml(value);
+        }
+      });
+    }
+
+    return DevConfig(
+      headers: headers,
+      host: serverYaml['host'] as String,
+      port: serverYaml['port'] as int,
+      https:
+          serverYaml['https'] is YamlMap
+              ? HttpsConfig.fromYaml(serverYaml['https'] as YamlMap)
+              : null,
+      browser:
+          serverYaml['browser'] is YamlMap
+              ? BrowserConfig.fromYaml(serverYaml['browser'] as YamlMap)
+              : null,
+      experimentalHotReload: serverYaml['experimental-hot-reload'] as bool? ?? false,
+      proxy: proxyMap,
+    );
+  }
+
+  @override
+  String toString() {
+    return '''
+      DevConfig:
+      Headers: $headers
+      Host: $host
+      Port: $port
+      HTTPS: $https
+      Browser: $browser
+      Experimental Hot Reload: $experimentalHotReload
+      Proxy: $proxy
+    ''';
+  }
+}
+
+class HttpsConfig {
+  HttpsConfig({this.certPath, this.certKeyPath});
+  final String? certPath;
+  final String? certKeyPath;
+
+  factory HttpsConfig.fromYaml(YamlMap yaml) {
+    return HttpsConfig(
+      certPath: yaml['cert-path'] as String?,
+      certKeyPath: yaml['cert-key-path'] as String?,
+    );
+  }
+
+  @override
+  String toString() {
+    return '{cert-path: $certPath, cert-key-path: $certKeyPath}';
+  }
+}
+
+class BrowserConfig {
+  final int debugPort;
+  final List<String> flags;
+
+  BrowserConfig({required this.debugPort, required this.flags});
+
+  factory BrowserConfig.fromYaml(YamlMap yaml) {
+    final List<String> flags =
+        (yaml['flags'] as YamlList?)?.map((e) => e.toString()).toList() ?? [];
+    return BrowserConfig(debugPort: yaml['debug-port'] as int, flags: flags);
+  }
+
+  @override
+  String toString() {
+    return '{debug-port: $debugPort, flags: $flags}';
+  }
+}
+
+class ProxyConfig {
+  final String target;
+
+  ProxyConfig({required this.target});
+
+  factory ProxyConfig.fromYaml(YamlMap yaml) {
+    return ProxyConfig(target: yaml['target'] as String);
+  }
+
+  @override
+  String toString() {
+    return '{target: $target}';
+  }
+}
+
+shelf.Middleware _injectHeadersMiddleware(List<String> headersToInject) {
+  return (shelf.Handler innerHandler) {
+    return (shelf.Request request) async {
+      final Map<String, String> newHeaders = Map.from(request.headers);
+
+      for (final headerEntry in headersToInject) {
+        final parts = headerEntry.split('=');
+        if (parts.length == 2) {
+          newHeaders[parts[0].toLowerCase()] = parts[1];
+        } else {
+          print('Error in header: "$headerEntry"');
+        }
+      }
+
+      final shelf.Request modifiedRequest = shelf.Request(
+        request.method,
+        request.requestedUri,
+        headers: newHeaders,
+        body: request.read(),
+        context: request.context,
+      );
+
+      print('--- Request Headers After Middleware Injection ---');
+      newHeaders.forEach((key, value) {
+        print('$key: $value');
+      });
+      print('----------------------------------------------------');
+
+      return await innerHandler(modifiedRequest);
+    };
+  };
+}
+
+Future<DevConfig?> _loadDevConfig() async {
+  const String devConfigFilePath = 'devconfig.yaml';
+  final io.File devConfigFile = io.File(devConfigFilePath);
+
+  if (!await devConfigFile.exists()) {
+    globals.printStatus('No devconfig.yaml found. Running with default web server configuration.');
+    return null;
+  } else {
+    try {
+      final String devConfigContent = await devConfigFile.readAsString();
+      final YamlDocument yamlDoc = loadYamlDocument(devConfigContent);
+      final YamlMap? rootYaml = yamlDoc.contents as YamlMap?;
+
+      if (rootYaml == null || !rootYaml.containsKey('server') || rootYaml['server'] is! YamlMap) {
+        const String errorMessage =
+            'Error: devconfig.yaml found, but the "server" key is missing or malformed. '
+            'A valid "server" configuration is required.';
+        globals.printError(errorMessage);
+        throwToolExit('Invalid devconfig.yaml: "server" key missing or malformed.');
+      }
+
+      final YamlMap serverYaml = rootYaml['server'] as YamlMap;
+      final DevConfig config = DevConfig.fromYaml(serverYaml);
+
+      globals.printStatus('\nParsed devconfig.yaml:');
+      globals.printStatus(config.toString());
+
+      if (config.proxy.isNotEmpty) {
+        globals.printStatus(
+          'Initializing web server with custom configuration. Found ${config.proxy.length} proxy rules.',
+        );
+      } else {
+        globals.printStatus('No proxy rules found.');
+      }
+      return config;
+    } on YamlException catch (e) {
+      String errorMessage = 'Error: Failed to parse devconfig.yaml: ${e.message}';
+      if (e.span != null) {
+        errorMessage += '\n  At line ${e.span!.start.line + 1}, column ${e.span!.start.column + 1}';
+        errorMessage += '\n  Problematic text: "${e.span!.text}"';
+      }
+      globals.printError(errorMessage);
+      throwToolExit('Failed to parse devconfig.yaml due to syntax error.');
+    } catch (e) {
+      // General unexpected error: Log and revert to default (don't fail build)
+      globals.printError('An unexpected error occurred while reading devconfig.yaml: $e');
+      globals.printStatus(
+        'Reverting to default flutter_tools web server configuration due to unexpected error.',
+      );
+      return null;
+    }
+  }
+}
 
 /// An expression compiler connecting to FrontendServer.
 ///
@@ -264,27 +470,37 @@ class WebAssetServer implements AssetReader {
   }) async {
     // TODO(srujzs): Remove this assertion when the library bundle format is
     // supported without canary mode.
+
+    final DevConfig? devConfig = await _loadDevConfig();
+    final String effectiveHost = devConfig?.host ?? hostname;
+    final int effectivePort = devConfig?.port ?? port;
+    final String? effectiveCertPath = devConfig?.https?.certPath ?? tlsCertPath;
+    final String? effectiveCertKeyPath = devConfig?.https?.certKeyPath ?? tlsCertKeyPath;
+    final List<String> effectiveHeaders = devConfig?.headers ?? [];
+    final Map<String, ProxyConfig> effectiveProxy = devConfig?.proxy ?? {};
+
+    print('Loaded proxy config: $effectiveProxy');
     if (ddcModuleSystem) {
       assert(canaryFeatures);
     }
     InternetAddress address;
-    if (hostname == 'any') {
+    if (effectiveHost == 'any') {
       address = InternetAddress.anyIPv4;
     } else {
-      address = (await InternetAddress.lookup(hostname)).first;
+      address = (await InternetAddress.lookup(effectiveHost)).first;
     }
     HttpServer? httpServer;
     const int kMaxRetries = 4;
     for (int i = 0; i <= kMaxRetries; i++) {
       try {
-        if (tlsCertPath != null && tlsCertKeyPath != null) {
+        if (effectiveCertPath != null && effectiveCertKeyPath != null) {
           final SecurityContext serverContext =
               SecurityContext()
-                ..useCertificateChain(tlsCertPath)
-                ..usePrivateKey(tlsCertKeyPath);
-          httpServer = await HttpServer.bindSecure(address, port, serverContext);
+                ..useCertificateChain(effectiveCertPath)
+                ..usePrivateKey(effectiveCertKeyPath);
+          httpServer = await HttpServer.bindSecure(address, effectivePort, serverContext);
         } else {
-          httpServer = await HttpServer.bind(address, port);
+          httpServer = await HttpServer.bind(address, effectivePort);
         }
         break;
       } on SocketException catch (e, s) {
@@ -317,15 +533,16 @@ class WebAssetServer implements AssetReader {
       webRenderer: webRenderer,
       useLocalCanvasKit: useLocalCanvasKit,
     );
-    final int selectedPort = server.selectedPort;
-    String url = '$hostname:$selectedPort';
+    final int selectedPort = httpServer.port;
+    String url = '$effectiveHost:$selectedPort';
     if (hostname == 'any') {
       url = 'localhost:$selectedPort';
     }
     server._baseUri = Uri.http(url, server.basePath);
-    if (tlsCertPath != null && tlsCertKeyPath != null) {
+    if (effectiveCertPath != null && effectiveCertKeyPath != null) {
       server._baseUri = Uri.https(url, server.basePath);
     }
+    globals.printStatus('Dev server listening on ${server._baseUri}');
     if (testMode) {
       return server;
     }
@@ -341,9 +558,14 @@ class WebAssetServer implements AssetReader {
         basePath: server.basePath,
         needsCoopCoep: webRenderer == WebRendererMode.skwasm,
       );
+      shelf.Pipeline pipeline = const shelf.Pipeline();
+      if (effectiveHeaders.isNotEmpty) {
+        pipeline = pipeline.addMiddleware(_injectHeadersMiddleware(effectiveHeaders));
+      }
+      final shelf.Handler finalReleaseHandler = pipeline.addHandler(releaseAssetServer.handle);
       runZonedGuarded(
         () {
-          shelf.serveRequests(httpServer!, releaseAssetServer.handle);
+          shelf.serveRequests(httpServer!, finalReleaseHandler);
         },
         (Object e, StackTrace s) {
           globals.printTrace('Release asset server: error serving requests: $e:$s');
@@ -443,11 +665,80 @@ class WebAssetServer implements AssetReader {
           connectedWebDeviceIds.contains(globals.deviceManager?.specifiedDeviceId ?? 'chrome'),
     );
     shelf.Pipeline pipeline = const shelf.Pipeline();
+    if (effectiveHeaders.isNotEmpty) {
+      pipeline = pipeline.addMiddleware(_injectHeadersMiddleware(effectiveHeaders));
+    }
     if (enableDwds) {
       pipeline = pipeline.addMiddleware(middleware);
       pipeline = pipeline.addMiddleware(dwds.middleware);
     }
-    final shelf.Handler dwdsHandler = pipeline.addHandler(server.handleRequest);
+
+    //REWRITE LOGIC
+    // final shelf_router.Router router = shelf_router.Router();
+
+    // effectiveProxy.forEach((path, proxyConfig) {
+    //   print("PATH: $path, PROXYCONFIG: $proxyConfig");
+    //   //exact match (e.g. /api or api)
+    //   router.all(path, (shelf.Request request) async {
+    //     print("MATCHED exact proxy rule for request: ${request.url.path}");
+    //     final Uri targetResolvedUri = Uri.parse(proxyConfig.target).resolve('/');
+
+    //     final shelf.Request newRequest = shelf.Request(
+    //       request.method,
+    //       targetResolvedUri,
+    //       headers: request.headers,
+    //       body: await request.read().toList(),
+    //       context: request.context,
+    //     );
+    //     return await proxyHandler(proxyConfig.target)(newRequest);
+    //   });
+
+    //   //remainder
+    //   router.all('$path/<remainder|.*>', (shelf.Request request) async {
+    //     print(
+    //       "MATCHED proxy rule for request: ${request.url.path} (pattern: '$path/<remainder|.*>')",
+    //     );
+
+    //     final String? remainder = request.params['remainder'];
+    //     final Uri targetResolvedUri = Uri.parse(proxyConfig.target).resolve('/$remainder');
+    //     final shelf.Request newRequest = shelf.Request(
+    //       request.method,
+    //       targetResolvedUri,
+    //       headers: request.headers,
+    //       body: await request.read().toList(),
+    //       context: request.context,
+    //     );
+
+    //     try {
+    //       return await proxyHandler(proxyConfig.target)(newRequest);
+    //     } catch (e, s) {
+    //       print('ERROR in proxy handler for ${request.url.path}: $e\n$s');
+    //       return shelf.Response.internalServerError(body: 'Proxy error: $e');
+    //     }
+    //   });
+    // });
+    final shelf_router.Router router = shelf_router.Router();
+
+    // Helper function to handle the proxy request
+    Future<shelf.Response> _handleProxyRequest(shelf.Request request, String targetBaseUrl) async {
+      return await proxyHandler(targetBaseUrl)(request);
+    }
+
+    effectiveProxy.forEach((path, proxyConfig) {
+      // Exact match (e.g., /api or api)
+      router.all(path, (shelf.Request request) async {
+        return await _handleProxyRequest(request, proxyConfig.target);
+      });
+
+      // Remainder
+      router.all('$path/<remainder|.*>', (shelf.Request request) async {
+        return await _handleProxyRequest(request, proxyConfig.target);
+      });
+    });
+
+    router.all('/<unmatched|.*>', server.handleRequest);
+
+    final shelf.Handler dwdsHandler = pipeline.addHandler(router.call);
     final shelf.Cascade cascade = shelf.Cascade().add(dwds.handler).add(dwdsHandler);
     runZonedGuarded(
       () {
