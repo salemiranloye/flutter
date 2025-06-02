@@ -196,7 +196,7 @@ shelf.Middleware _injectHeadersMiddleware(List<String> headersToInject) {
         if (parts.length == 2) {
           newHeaders[parts[0].toLowerCase()] = parts[1];
         } else {
-          print('Error in header: "$headerEntry"');
+          globals.printError('Error in header: "$headerEntry"');
         }
       }
 
@@ -482,7 +482,6 @@ class WebAssetServer implements AssetReader {
     final List<String> effectiveHeaders = devConfig?.headers ?? <String>[];
     final Map<String, ProxyConfig> effectiveProxy = devConfig?.proxy ?? <String, ProxyConfig>{};
 
-    print('Loaded proxy config: $effectiveProxy');
     if (ddcModuleSystem) {
       assert(canaryFeatures);
     }
