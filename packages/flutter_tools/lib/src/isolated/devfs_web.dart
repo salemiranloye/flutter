@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:io' as io;
+import 'dart:typed_data';
 
 import 'package:dwds/data/build_result.dart';
 import 'package:dwds/dwds.dart';
@@ -71,14 +71,6 @@ const String _kDefaultIndex = '''
 ''';
 
 class DevConfig {
-  final List<String>? headers;
-  final String? host;
-  final int? port;
-  final HttpsConfig? https;
-  final BrowserConfig? browser;
-  final bool? experimentalHotReload;
-  final Map<String, ProxyConfig>? proxy;
-
   DevConfig({
     this.headers,
     this.host,
@@ -86,14 +78,14 @@ class DevConfig {
     this.https,
     this.browser,
     this.experimentalHotReload,
-    this.proxy = const {},
+    this.proxy = const <String, ProxyConfig>{},
   });
 
   factory DevConfig.fromYaml(YamlMap serverYaml) {
     final List<String> headers =
-        (serverYaml['headers'] as YamlList?)?.map((e) => e.toString()).toList() ?? [];
+        (serverYaml['headers'] as YamlList?)?.map((e) => e.toString()).toList() ?? <String>[];
 
-    final Map<String, ProxyConfig> proxyMap = {};
+    final Map<String, ProxyConfig> proxyMap = <String, ProxyConfig>{};
     if (serverYaml['proxy'] is YamlMap) {
       (serverYaml['proxy'] as YamlMap).forEach((key, value) {
         if (value is YamlMap) {
@@ -118,6 +110,13 @@ class DevConfig {
       proxy: proxyMap,
     );
   }
+  final List<String>? headers;
+  final String? host;
+  final int? port;
+  final HttpsConfig? https;
+  final BrowserConfig? browser;
+  final bool? experimentalHotReload;
+  final Map<String, ProxyConfig>? proxy;
 
   @override
   String toString() {
@@ -136,8 +135,6 @@ class DevConfig {
 
 class HttpsConfig {
   HttpsConfig({this.certPath, this.certKeyPath});
-  final String? certPath;
-  final String? certKeyPath;
 
   factory HttpsConfig.fromYaml(YamlMap yaml) {
     return HttpsConfig(
@@ -146,6 +143,9 @@ class HttpsConfig {
     );
   }
 
+  final String? certPath;
+  final String? certKeyPath;
+
   @override
   String toString() {
     return '{cert-path: $certPath, cert-key-path: $certKeyPath}';
@@ -153,16 +153,16 @@ class HttpsConfig {
 }
 
 class BrowserConfig {
-  final int debugPort;
-  final List<String> flags;
-
   BrowserConfig({required this.debugPort, required this.flags});
 
   factory BrowserConfig.fromYaml(YamlMap yaml) {
     final List<String> flags =
-        (yaml['flags'] as YamlList?)?.map((e) => e.toString()).toList() ?? [];
+        (yaml['flags'] as YamlList?)?.map((e) => e.toString()).toList() ?? <String>[];
     return BrowserConfig(debugPort: yaml['debug-port'] as int, flags: flags);
   }
+
+  final int debugPort;
+  final List<String> flags;
 
   @override
   String toString() {
@@ -171,13 +171,13 @@ class BrowserConfig {
 }
 
 class ProxyConfig {
-  final String target;
-
   ProxyConfig({required this.target});
 
   factory ProxyConfig.fromYaml(YamlMap yaml) {
     return ProxyConfig(target: yaml['target'] as String);
   }
+
+  final String target;
 
   @override
   String toString() {
@@ -190,8 +190,8 @@ shelf.Middleware _injectHeadersMiddleware(List<String> headersToInject) {
     return (shelf.Request request) async {
       final Map<String, String> newHeaders = Map.from(request.headers);
 
-      for (final headerEntry in headersToInject) {
-        final parts = headerEntry.split('=');
+      for (final String headerEntry in headersToInject) {
+        final List<String> parts = headerEntry.split('=');
         if (parts.length == 2) {
           newHeaders[parts[0].toLowerCase()] = parts[1];
         } else {
@@ -222,53 +222,53 @@ Future<DevConfig?> _loadDevConfig() async {
   const String devConfigFilePath = 'devconfig.yaml';
   final io.File devConfigFile = io.File(devConfigFilePath);
 
-  if (!await devConfigFile.exists()) {
+  if (!devConfigFile.existsSync()) {
     globals.printStatus('No devconfig.yaml found. Running with default web server configuration.');
     return null;
-  } else {
-    try {
-      final String devConfigContent = await devConfigFile.readAsString();
-      final YamlDocument yamlDoc = loadYamlDocument(devConfigContent);
-      final YamlMap? rootYaml = yamlDoc.contents as YamlMap?;
+  }
 
-      if (rootYaml == null || !rootYaml.containsKey('server') || rootYaml['server'] is! YamlMap) {
-        const String errorMessage =
-            'Error: devconfig.yaml found, but the "server" key is missing or malformed. '
-            'A valid "server" configuration is required.';
-        globals.printError(errorMessage);
-        throwToolExit('Invalid devconfig.yaml: "server" key missing or malformed.');
-      }
+  try {
+    final String devConfigContent = await devConfigFile.readAsString();
+    final YamlDocument yamlDoc = loadYamlDocument(devConfigContent);
+    final YamlMap? rootYaml = yamlDoc.contents as YamlMap?;
 
-      final YamlMap serverYaml = rootYaml['server'] as YamlMap;
-      final DevConfig config = DevConfig.fromYaml(serverYaml);
-
-      globals.printStatus('\nParsed devconfig.yaml:');
-      globals.printStatus(config.toString());
-
-      if (config.proxy?.isNotEmpty == true) {
-        globals.printStatus(
-          'Initializing web server with custom configuration. Found ${config.proxy?.length ?? 0} proxy rules.',
-        );
-      } else {
-        globals.printStatus('No proxy rules found.');
-      }
-      return config;
-    } on YamlException catch (e) {
-      String errorMessage = 'Error: Failed to parse devconfig.yaml: ${e.message}';
-      if (e.span != null) {
-        errorMessage += '\n  At line ${e.span!.start.line + 1}, column ${e.span!.start.column + 1}';
-        errorMessage += '\n  Problematic text: "${e.span!.text}"';
-      }
+    if (rootYaml == null || !rootYaml.containsKey('server') || rootYaml['server'] is! YamlMap) {
+      const String errorMessage =
+          'Error: devconfig.yaml found, but the "server" key is missing or malformed. '
+          'A valid "server" configuration is required.';
       globals.printError(errorMessage);
-      throwToolExit('Failed to parse devconfig.yaml due to syntax error.');
-    } catch (e) {
-      // General unexpected error: Log and revert to default (don't fail build)
-      globals.printError('An unexpected error occurred while reading devconfig.yaml: $e');
-      globals.printStatus(
-        'Reverting to default flutter_tools web server configuration due to unexpected error.',
-      );
-      return null;
+      throwToolExit('Invalid devconfig.yaml: "server" key missing or malformed.');
     }
+
+    final YamlMap serverYaml = rootYaml['server'] as YamlMap;
+    final DevConfig config = DevConfig.fromYaml(serverYaml);
+
+    globals.printStatus('\nParsed devconfig.yaml:');
+    globals.printStatus(config.toString());
+
+    if (config.proxy?.isNotEmpty ?? false) {
+      globals.printStatus(
+        'Initializing web server with custom configuration. Found ${config.proxy?.length ?? 0} proxy rules.',
+      );
+    } else {
+      globals.printStatus('No proxy rules found.');
+    }
+    return config;
+  } on YamlException catch (e) {
+    String errorMessage = 'Error: Failed to parse devconfig.yaml: ${e.message}';
+    if (e.span != null) {
+      errorMessage += '\n  At line ${e.span!.start.line + 1}, column ${e.span!.start.column + 1}';
+      errorMessage += '\n  Problematic text: "${e.span!.text}"';
+    }
+    globals.printError(errorMessage);
+    throwToolExit('Failed to parse devconfig.yaml due to syntax error.');
+  } catch (e) {
+    // General unexpected error: Log and revert to default (don't fail build)
+    globals.printError('An unexpected error occurred while reading devconfig.yaml: $e');
+    globals.printStatus(
+      'Reverting to default flutter_tools web server configuration due to unexpected error.',
+    );
+    return null;
   }
 }
 
@@ -476,8 +476,8 @@ class WebAssetServer implements AssetReader {
     final int effectivePort = devConfig?.port ?? port;
     final String? effectiveCertPath = devConfig?.https?.certPath ?? tlsCertPath;
     final String? effectiveCertKeyPath = devConfig?.https?.certKeyPath ?? tlsCertKeyPath;
-    final List<String> effectiveHeaders = devConfig?.headers ?? [];
-    final Map<String, ProxyConfig> effectiveProxy = devConfig?.proxy ?? {};
+    final List<String> effectiveHeaders = devConfig?.headers ?? <String>[];
+    final Map<String, ProxyConfig> effectiveProxy = devConfig?.proxy ?? <String, ProxyConfig>{};
 
     print('Loaded proxy config: $effectiveProxy');
     if (ddcModuleSystem) {
@@ -722,19 +722,19 @@ class WebAssetServer implements AssetReader {
     final shelf_router.Router router = shelf_router.Router();
 
     // Helper function to handle the proxy request
-    Future<shelf.Response> _handleProxyRequest(shelf.Request request, String targetBaseUrl) async {
+    Future<shelf.Response> handleProxyRequest(shelf.Request request, String targetBaseUrl) async {
       return await proxyHandler(targetBaseUrl)(request);
     }
 
-    effectiveProxy.forEach((path, proxyConfig) {
+    effectiveProxy.forEach((String path, ProxyConfig proxyConfig) {
       // Exact match (e.g., /api or api)
       router.all(path, (shelf.Request request) async {
-        return await _handleProxyRequest(request, proxyConfig.target);
+        return handleProxyRequest(request, proxyConfig.target);
       });
 
       // Remainder
       router.all('$path/<remainder|.*>', (shelf.Request request) async {
-        return await _handleProxyRequest(request, proxyConfig.target);
+        return handleProxyRequest(request, proxyConfig.target);
       });
     });
 
@@ -742,9 +742,9 @@ class WebAssetServer implements AssetReader {
 
     final shelf.Handler routerHandler = pipeline.addHandler(router.call);
     final shelf.Cascade cascade = shelf.Cascade()
-      .add(dwds.handler)
-      .add(routerHandler)
-      .add(dwdsHandler);
+        .add(dwds.handler)
+        .add(routerHandler)
+        .add(dwdsHandler);
     runZonedGuarded(
       () {
         shelf.serveRequests(httpServer!, cascade.handler);
