@@ -207,11 +207,11 @@ shelf.Middleware _injectHeadersMiddleware(List<String> headersToInject) {
         context: request.context,
       );
 
-      print('--- Request Headers After Middleware Injection ---');
-      newHeaders.forEach((key, value) {
-        print('$key: $value');
-      });
-      print('----------------------------------------------------');
+      // print('--- Request Headers After Middleware Injection ---');
+      // newHeaders.forEach((key, value) {
+      //   print('$key: $value');
+      // });
+      // print('----------------------------------------------------');
 
       return await innerHandler(modifiedRequest);
     };
@@ -673,6 +673,8 @@ class WebAssetServer implements AssetReader {
       pipeline = pipeline.addMiddleware(dwds.middleware);
     }
 
+    final shelf.Handler dwdsHandler = pipeline.addHandler(server.handleRequest);
+
     //REWRITE LOGIC
     // final shelf_router.Router router = shelf_router.Router();
 
@@ -738,8 +740,11 @@ class WebAssetServer implements AssetReader {
 
     router.all('/<unmatched|.*>', server.handleRequest);
 
-    final shelf.Handler dwdsHandler = pipeline.addHandler(router.call);
-    final shelf.Cascade cascade = shelf.Cascade().add(dwds.handler).add(dwdsHandler);
+    final shelf.Handler routerHandler = pipeline.addHandler(router.call);
+   final shelf.Cascade cascade = shelf.Cascade()
+      .add(dwds.handler)
+      .add(routerHandler)
+      .add(dwdsHandler);
     runZonedGuarded(
       () {
         shelf.serveRequests(httpServer!, cascade.handler);
