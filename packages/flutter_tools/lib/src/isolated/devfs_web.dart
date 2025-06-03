@@ -270,7 +270,7 @@ class WebAssetServer implements AssetReader {
     final String? effectiveCertPath = devConfig.https?.certPath;
     final String? effectiveCertKeyPath = devConfig.https?.certKeyPath;
     final List<String> effectiveHeaders = devConfig.headers;
-    final Map<String, ProxyConfig> effectiveProxy = devConfig.proxy;
+    final List<ProxyConfig> effectiveProxy = devConfig.proxy ?? <ProxyConfig>[];
 
     if (ddcModuleSystem) {
       assert(canaryFeatures);
@@ -514,23 +514,40 @@ class WebAssetServer implements AssetReader {
     final shelf_router.Router router = shelf_router.Router();
 
     // Helper function to handle the proxy request
-    Future<shelf.Response> handleProxyRequest(shelf.Request request, String targetBaseUrl) async {
-      return await proxyHandler(targetBaseUrl)(request);
+    Future<shelf.Response> handleProxyRequest(
+      shelf.Request request,
+      ProxyConfig proxyConfig,
+    ) async {
+      return await proxyHandler(proxyConfig.target)(request);
     }
 
-    effectiveProxy.forEach((String path, ProxyConfig proxyConfig) {
-      // Exact match (e.g., /api or api)
-      router.all(path, (shelf.Request request) async {
-        return handleProxyRequest(request, proxyConfig.target);
-      });
+    // effectiveProxy.forEach((String path, ProxyConfig proxyConfig) {
+    //   // Exact match (e.g., /api or api)
+    //   router.all(path, (shelf.Request request) async {
+    //     return handleProxyRequest(request, proxyConfig.target);
+    //   });
 
-      // Remainder
-      router.all('$path/<remainder|.*>', (shelf.Request request) async {
-        return handleProxyRequest(request, proxyConfig.target);
-      });
+    //   // Remainder
+    //   router.all('$path/<remainder|.*>', (shelf.Request request) async {
+    //     return handleProxyRequest(request, proxyConfig.target);
+    //   });
+    // });
+
+    // router.all('/<unmatched|.*>', server.handleRequest);
+
+    router.all('/<path|.*>', (shelf.Request request) async {
+      final String requestPath = '/${request.params['path'] ?? ''}';
+
+      for (final config in effectiveProxy) {
+        if (config.matches(requestPath)) {
+          print('Proxying $requestPath to ${config.target} using ${config.runtimeType}');
+          return handleProxyRequest(request, config);
+        }
+      }
+
+      print('No proxy match for $requestPath, handling with default server');
+      return server.handleRequest(request);
     });
-
-    router.all('/<unmatched|.*>', server.handleRequest);
 
     final shelf.Handler routerHandler = pipeline.addHandler(router.call);
     final shelf.Cascade cascade = shelf.Cascade()
