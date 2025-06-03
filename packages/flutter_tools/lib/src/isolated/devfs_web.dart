@@ -78,19 +78,20 @@ class DevConfig {
     this.https,
     this.browser,
     this.experimentalHotReload,
-    this.proxy = const <String, ProxyConfig>{},
+    this.proxy = const <ProxyConfig>[],
   });
 
+  //constructs a DevConfig object
   factory DevConfig.fromYaml(YamlMap serverYaml) {
     final List<String> headers =
         (serverYaml['headers'] as YamlList?)?.map((dynamic e) => e.toString()).toList() ??
         <String>[];
 
-    final Map<String, ProxyConfig> proxyMap = <String, ProxyConfig>{};
+    final List<ProxyConfig> proxyRules = <ProxyConfig>[];
     if (serverYaml['proxy'] is YamlMap) {
       (serverYaml['proxy'] as YamlMap).forEach((dynamic key, dynamic value) {
         if (value is YamlMap) {
-          proxyMap[key.toString()] = ProxyConfig.fromYaml(value);
+          proxyRules.add(ProxyConfig.fromYaml(key.toString(), value));
         }
       });
     }
@@ -108,7 +109,7 @@ class DevConfig {
               ? BrowserConfig.fromYaml(serverYaml['browser'] as YamlMap)
               : null,
       experimentalHotReload: serverYaml['experimental-hot-reload'] as bool? ?? false,
-      proxy: proxyMap,
+      proxy: proxyRules,
     );
   }
   final List<String> headers;
@@ -117,7 +118,7 @@ class DevConfig {
   final HttpsConfig? https;
   final BrowserConfig? browser;
   final bool? experimentalHotReload;
-  final Map<String, ProxyConfig>? proxy;
+  final List<ProxyConfig>? proxy;
 
   @override
   String toString() {
@@ -171,18 +172,102 @@ class BrowserConfig {
   }
 }
 
-class ProxyConfig {
-  ProxyConfig({required this.target});
+// class ProxyConfig {
+//   ProxyConfig({required this.target});
 
-  factory ProxyConfig.fromYaml(YamlMap yaml) {
-    return ProxyConfig(target: yaml['target'] as String);
-  }
+//   factory ProxyConfig.fromYaml(YamlMap yaml) {
+//     return ProxyConfig(target: yaml['target'] as String);
+//   }
 
+//   final String target;
+
+//   @override
+//   String toString() {
+//     return '{target: $target}';
+//   }
+// }
+
+abstract class ProxyConfig {
   final String target;
+  final Function(String)? rewrite;
+
+  ProxyConfig({required this.target, this.rewrite});
+
+  bool matches(String path);
+
+  factory ProxyConfig.fromYaml(String key, YamlMap yaml) {
+    final String? rewriteValue = yaml['rewrite']?.toString();
+    Function(String)? rewriteFn;
+
+    //regex rewrites. rewrite is a function "pattern -> replacement"
+    if (rewriteValue != null && rewriteValue.isNotEmpty) {
+      final parts = rewriteValue.split('->');
+      if (parts.length == 2) {
+        final RegExp pattern = RegExp(parts[0].trim());
+        final String replacement = parts[1].trim();
+        rewriteFn = (path) => path.replaceFirst(pattern, replacement);
+      }
+      //rewrite: true
+    } else if (yaml['rewrite'] is bool && yaml['rewrite'] == true) {
+      rewriteFn = (path) => path.replaceFirst(key, '');
+    }
+
+    //if its a regex aka starts with ^
+    if (key.startsWith('^')) {
+      try {
+        return RegexProxyConfig(
+          pattern: RegExp(key),
+          target: yaml['target'] as String,
+          rewrite: rewriteFn,
+        );
+      } catch (e) {
+        globals.printStatus('Warning: Invalid regex pattern "$key". Treating as string prefix: $e');
+        return StringPrefixProxyConfig(
+          prefix: key,
+          target: yaml['target'] as String,
+          rewrite: rewriteFn,
+        );
+      }
+    } else {
+      return StringPrefixProxyConfig(
+        prefix: key,
+        target: yaml['target'] as String,
+        rewrite: rewriteFn,
+      );
+    }
+  }
+}
+
+//string path
+class StringPrefixProxyConfig extends ProxyConfig {
+  StringPrefixProxyConfig({required this.prefix, required super.target, super.rewrite});
+
+  final String prefix;
+  @override
+  bool matches(String path) {
+    return path.startsWith(prefix);
+  }
 
   @override
   String toString() {
-    return '{target: $target}';
+    return '{prefix: $prefix, target: $target, rewrite: ${rewrite != null ? 'yes' : 'no'}}';
+  }
+}
+
+//regex
+class RegexProxyConfig extends ProxyConfig {
+  RegexProxyConfig({required this.pattern, required super.target, super.rewrite});
+
+  final RegExp pattern;
+
+  @override
+  bool matches(String path) {
+    return pattern.hasMatch(path);
+  }
+
+  @override
+  String toString() {
+    return '{pattern: ${pattern.pattern}, target: $target, rewrite: ${rewrite != null ? 'yes' : 'no'}}';
   }
 }
 
@@ -219,6 +304,7 @@ shelf.Middleware _injectHeadersMiddleware(List<String> headersToInject) {
   };
 }
 
+//locate, read, parse, and validate devconfig.yaml
 Future<DevConfig> _loadDevConfig() async {
   const String devConfigFilePath = 'devconfig.yaml';
   final io.File devConfigFile = io.File(devConfigFilePath);
@@ -476,7 +562,7 @@ class WebAssetServer implements AssetReader {
     final String? effectiveCertPath = devConfig.https?.certPath;
     final String? effectiveCertKeyPath = devConfig.https?.certKeyPath;
     final List<String> effectiveHeaders = devConfig.headers;
-    final Map<String, ProxyConfig> effectiveProxy = devConfig.proxy ?? <String, ProxyConfig>{};
+    final List<ProxyConfig> effectiveProxy = devConfig.proxy ?? <ProxyConfig>[];
 
     if (ddcModuleSystem) {
       assert(canaryFeatures);
@@ -720,23 +806,40 @@ class WebAssetServer implements AssetReader {
     final shelf_router.Router router = shelf_router.Router();
 
     // Helper function to handle the proxy request
-    Future<shelf.Response> handleProxyRequest(shelf.Request request, String targetBaseUrl) async {
-      return await proxyHandler(targetBaseUrl)(request);
+    Future<shelf.Response> handleProxyRequest(
+      shelf.Request request,
+      ProxyConfig proxyConfig,
+    ) async {
+      return await proxyHandler(proxyConfig.target)(request);
     }
 
-    effectiveProxy.forEach((String path, ProxyConfig proxyConfig) {
-      // Exact match (e.g., /api or api)
-      router.all(path, (shelf.Request request) async {
-        return handleProxyRequest(request, proxyConfig.target);
-      });
+    // effectiveProxy.forEach((String path, ProxyConfig proxyConfig) {
+    //   // Exact match (e.g., /api or api)
+    //   router.all(path, (shelf.Request request) async {
+    //     return handleProxyRequest(request, proxyConfig.target);
+    //   });
 
-      // Remainder
-      router.all('$path/<remainder|.*>', (shelf.Request request) async {
-        return handleProxyRequest(request, proxyConfig.target);
-      });
+    //   // Remainder
+    //   router.all('$path/<remainder|.*>', (shelf.Request request) async {
+    //     return handleProxyRequest(request, proxyConfig.target);
+    //   });
+    // });
+
+    // router.all('/<unmatched|.*>', server.handleRequest);
+
+    router.all('/<path|.*>', (shelf.Request request) async {
+      final String requestPath = '/${request.params['path'] ?? ''}';
+
+      for (final config in effectiveProxy) {
+        if (config.matches(requestPath)) {
+          print('Proxying $requestPath to ${config.target} using ${config.runtimeType}');
+          return handleProxyRequest(request, config);
+        }
+      }
+
+      print('No proxy match for $requestPath, handling with default server');
+      return server.handleRequest(request);
     });
-
-    router.all('/<unmatched|.*>', server.handleRequest);
 
     final shelf.Handler routerHandler = pipeline.addHandler(router.call);
     final shelf.Cascade cascade = shelf.Cascade()
