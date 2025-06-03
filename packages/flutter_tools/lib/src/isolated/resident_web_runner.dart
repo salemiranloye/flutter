@@ -301,12 +301,19 @@ Please provide a valid TCP port (an integer between 0 and 65535, inclusive).
             debuggingOptions.webEnableExpressionEvaluation
                 ? WebExpressionCompiler(device!.generator!, fileSystem: _fileSystem)
                 : null;
+        final DevConfig currentDevConfig = DevConfig(
+              host: debuggingOptions.hostname ?? 'localhost',
+              port: await getPort(),
+              https: (debuggingOptions.tlsCertPath != null || debuggingOptions.tlsCertKeyPath != null)
+                  ? HttpsConfig(
+                      certPath: debuggingOptions.tlsCertPath,
+                      certKeyPath: debuggingOptions.tlsCertKeyPath,
+                    )
+                  : null,
+            );
 
         device!.devFS = WebDevFS(
-          hostname: debuggingOptions.hostname ?? 'localhost',
-          port: await getPort(),
-          tlsCertPath: debuggingOptions.tlsCertPath,
-          tlsCertKeyPath: debuggingOptions.tlsCertKeyPath,
+          devConfig: currentDevConfig,
           packagesFilePath: packagesFilePath,
           urlTunneller: _urlTunneller,
           useSseForDebugProxy: debuggingOptions.webUseSseForDebugProxy,

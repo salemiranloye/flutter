@@ -72,9 +72,9 @@ const String _kDefaultIndex = '''
 
 class DevConfig {
   DevConfig({
-    this.headers,
-    this.host,
-    this.port,
+    this.headers = const <String>[],
+    this.host = 'any',
+    this.port = 0,
     this.https,
     this.browser,
     this.experimentalHotReload,
@@ -97,8 +97,8 @@ class DevConfig {
 
     return DevConfig(
       headers: headers,
-      host: serverYaml['host'] as String?,
-      port: serverYaml['port'] as int?,
+      host: serverYaml['host'] as String,
+      port: serverYaml['port'] as int,
       https:
           serverYaml['https'] is YamlMap
               ? HttpsConfig.fromYaml(serverYaml['https'] as YamlMap)
@@ -111,9 +111,9 @@ class DevConfig {
       proxy: proxyMap,
     );
   }
-  final List<String>? headers;
-  final String? host;
-  final int? port;
+  final List<String> headers;
+  final String host;
+  final int port;
   final HttpsConfig? https;
   final BrowserConfig? browser;
   final bool? experimentalHotReload;
@@ -219,7 +219,7 @@ shelf.Middleware _injectHeadersMiddleware(List<String> headersToInject) {
   };
 }
 
-Future<DevConfig?> _loadDevConfig() async {
+Future<DevConfig> _loadDevConfig() async {
   const String devConfigFilePath = 'devconfig.yaml';
   final io.File devConfigFile = io.File(devConfigFilePath);
 
@@ -227,7 +227,7 @@ Future<DevConfig?> _loadDevConfig() async {
     globals.printStatus(
       'No $devConfigFilePath found. Running with default web server configuration.',
     );
-    return null;
+    return DevConfig();
   }
 
   try {
@@ -271,7 +271,7 @@ Future<DevConfig?> _loadDevConfig() async {
     globals.printStatus(
       'Reverting to default flutter_tools web server configuration due to unexpected error.',
     );
-    return null;
+    return DevConfig();
   }
 }
 
@@ -448,10 +448,6 @@ class WebAssetServer implements AssetReader {
   /// trace.
   static Future<WebAssetServer> start(
     ChromiumLauncher? chromiumLauncher,
-    String hostname,
-    int port,
-    String? tlsCertPath,
-    String? tlsCertKeyPath,
     UrlTunneller? urlTunneller,
     bool useSseForDebugProxy,
     bool useSseForDebugBackend,
@@ -462,6 +458,7 @@ class WebAssetServer implements AssetReader {
     Uri entrypoint,
     ExpressionCompiler? expressionCompiler,
     Map<String, String> extraHeaders, {
+    required DevConfig devConfig,
     required WebRendererMode webRenderer,
     required bool isWasm,
     required bool useLocalCanvasKit,
@@ -474,13 +471,12 @@ class WebAssetServer implements AssetReader {
     // TODO(srujzs): Remove this assertion when the library bundle format is
     // supported without canary mode.
 
-    final DevConfig? devConfig = await _loadDevConfig();
-    final String effectiveHost = devConfig?.host ?? hostname;
-    final int effectivePort = devConfig?.port ?? port;
-    final String? effectiveCertPath = devConfig?.https?.certPath ?? tlsCertPath;
-    final String? effectiveCertKeyPath = devConfig?.https?.certKeyPath ?? tlsCertKeyPath;
-    final List<String> effectiveHeaders = devConfig?.headers ?? <String>[];
-    final Map<String, ProxyConfig> effectiveProxy = devConfig?.proxy ?? <String, ProxyConfig>{};
+    final String effectiveHost = devConfig.host;
+    final int effectivePort = devConfig.port;
+    final String? effectiveCertPath = devConfig.https?.certPath;
+    final String? effectiveCertKeyPath = devConfig.https?.certKeyPath;
+    final List<String> effectiveHeaders = devConfig.headers;
+    final Map<String, ProxyConfig> effectiveProxy = devConfig.proxy ?? <String, ProxyConfig>{};
 
     if (ddcModuleSystem) {
       assert(canaryFeatures);
@@ -537,7 +533,7 @@ class WebAssetServer implements AssetReader {
     );
     final int selectedPort = httpServer.port;
     String url = '$effectiveHost:$selectedPort';
-    if (hostname == 'any') {
+    if (devConfig.host == 'any') {
       url = 'localhost:$selectedPort';
     }
     server._baseUri = Uri.http(url, server.basePath);
@@ -657,7 +653,7 @@ class WebAssetServer implements AssetReader {
           expressionCompiler: expressionCompiler,
           spawnDds: enableDds,
         ),
-        appMetadata: AppMetadata(hostname: hostname),
+        appMetadata: AppMetadata(hostname: devConfig.host),
       ),
       // Inject the debugging support code if connected web devices are present,
       // and user specified a device id that matches a connected web device.
@@ -1142,10 +1138,6 @@ class WebDevFS implements DevFS {
   /// [testMode] is true, do not actually initialize dwds or the shelf static
   /// server.
   WebDevFS({
-    required this.hostname,
-    required int port,
-    required this.tlsCertPath,
-    required this.tlsCertKeyPath,
     required this.packagesFilePath,
     required this.urlTunneller,
     required this.useSseForDebugProxy,
@@ -1161,13 +1153,14 @@ class WebDevFS implements DevFS {
     required this.nativeNullAssertions,
     required this.ddcModuleSystem,
     required this.canaryFeatures,
+    required this.devConfig,
     required this.webRenderer,
     required this.isWasm,
     required this.useLocalCanvasKit,
     required this.rootDirectory,
     required this.isWindows,
     this.testMode = false,
-  }) : _port = port {
+  }) {
     // TODO(srujzs): Remove this assertion when the library bundle format is
     // supported without canary mode.
     if (ddcModuleSystem) {
@@ -1176,7 +1169,6 @@ class WebDevFS implements DevFS {
   }
 
   final Uri entrypoint;
-  final String hostname;
   final String packagesFilePath;
   final UrlTunneller? urlTunneller;
   final bool useSseForDebugProxy;
@@ -1192,13 +1184,11 @@ class WebDevFS implements DevFS {
   final ExpressionCompiler? expressionCompiler;
   final ChromiumLauncher? chromiumLauncher;
   final bool nativeNullAssertions;
-  final int _port;
-  final String? tlsCertPath;
-  final String? tlsCertKeyPath;
   final WebRendererMode webRenderer;
   final bool isWasm;
   final bool useLocalCanvasKit;
   final bool isWindows;
+  final DevConfig devConfig;
 
   late WebAssetServer webAssetServer;
 
@@ -1277,12 +1267,10 @@ class WebDevFS implements DevFS {
 
   @override
   Future<Uri> create() async {
+    final DevConfig devConfig = await _loadDevConfig();
+
     webAssetServer = await WebAssetServer.start(
       chromiumLauncher,
-      hostname,
-      _port,
-      tlsCertPath,
-      tlsCertKeyPath,
       urlTunneller,
       useSseForDebugProxy,
       useSseForDebugBackend,
@@ -1299,6 +1287,7 @@ class WebDevFS implements DevFS {
       testMode: testMode,
       ddcModuleSystem: ddcModuleSystem,
       canaryFeatures: canaryFeatures,
+      devConfig: devConfig,
     );
     return baseUri!;
   }
