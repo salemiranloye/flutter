@@ -3,11 +3,11 @@ import 'dart:io' as io;
 
 import 'package:meta/meta.dart';
 import 'package:shelf/shelf.dart' as shelf;
+import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
 import '../base/common.dart';
 import '../globals.dart' as globals;
-import 'package:source_span/source_span.dart';
 
 /// Class that represents the web server configuration specified in a `devconfig.yaml` file.
 @immutable
