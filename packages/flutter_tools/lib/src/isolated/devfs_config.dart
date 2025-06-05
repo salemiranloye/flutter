@@ -248,28 +248,40 @@ Future<DevConfig> loadDevConfig() async {
   }
 }
 
-shelf.Middleware injectHeadersMiddleware(List<String> headersToInject) {
+shelf.Middleware manageHeadersMiddleware({
+  List<String> headersToInjectOnRequest = const <String>[],
+  List<String> headersToRemoveFromRequest = const <String>[],
+  Map<String, String> headersToSetOnResponse = const <String, String>{},
+  List<String> headersToRemoveFromResponse = const <String>[],
+}) {
   return (shelf.Handler innerHandler) {
     return (shelf.Request request) async {
-      final Map<String, String> newHeaders = Map<String, String>.of(request.headers);
-
-      for (final String headerEntry in headersToInject) {
+      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers);
+      for (final String headerEntry in headersToInjectOnRequest) {
         final List<String> parts = headerEntry.split('=');
         if (parts.length == 2) {
-          newHeaders[parts[0].toLowerCase()] = parts[1];
+          newRequestHeaders[parts[0].trim().toLowerCase()] = parts[1].trim();
         } else {
-          globals.printError('Error in header: "$headerEntry"');
+          globals.printError('Error in request header to inject: "$headerEntry"');
         }
       }
-      final shelf.Request modifiedRequest = request.change(headers: newHeaders);
+      for (final String headerNameToRemove in headersToRemoveFromRequest) {
+        newRequestHeaders.remove(headerNameToRemove.toLowerCase());
+      }
+      final shelf.Request modifiedRequest = request.change(headers: newRequestHeaders);
 
-      // print('--- Request Headers After Middleware Injection ---');
-      // newHeaders.forEach((key, value) {
-      //   print('$key: $value');
-      // });
-      // print('----------------------------------------------------');
+      final shelf.Response response = await innerHandler(modifiedRequest);
+      final Map<String, String> newResponseHeaders = Map<String, String>.of(response.headers);
 
-      return await innerHandler(modifiedRequest);
+      for (final String headerName in headersToRemoveFromResponse) {
+        newResponseHeaders.remove(headerName.toLowerCase());
+      }
+
+      headersToSetOnResponse.forEach((String key, String value) {
+        newResponseHeaders[key.toLowerCase()] = value;
+      });
+
+      return response.change(headers: newResponseHeaders);
     };
   };
 }

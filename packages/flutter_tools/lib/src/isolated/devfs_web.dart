@@ -306,18 +306,11 @@ class WebAssetServer implements AssetReader {
       }
     }
 
-    // Allow rendering in a iframe.
-    httpServer!.defaultResponseHeaders.remove('x-frame-options', 'SAMEORIGIN');
-
-    for (final MapEntry<String, String> header in extraHeaders.entries) {
-      httpServer.defaultResponseHeaders.add(header.key, header.value);
-    }
-
     final PackageConfig packageConfig = buildInfo.packageConfig;
     final Map<String, String> modules = <String, String>{};
     final Map<String, String> digests = <String, String>{};
     final WebAssetServer server = WebAssetServer(
-      httpServer,
+      httpServer!,
       packageConfig,
       address,
       modules,
@@ -352,10 +345,17 @@ class WebAssetServer implements AssetReader {
         basePath: server.basePath,
         needsCoopCoep: webRenderer == WebRendererMode.skwasm,
       );
+      const List<String> responseHeadersToRemove = <String>['x-frame-options', 'SAMEORIGIN'];
+
       shelf.Pipeline pipeline = const shelf.Pipeline();
-      if (effectiveHeaders.isNotEmpty) {
-        pipeline = pipeline.addMiddleware(injectHeadersMiddleware(effectiveHeaders));
-      }
+      pipeline = pipeline.addMiddleware(
+        manageHeadersMiddleware(
+          headersToInjectOnRequest: effectiveHeaders,
+          headersToSetOnResponse: extraHeaders,
+          headersToRemoveFromResponse: responseHeadersToRemove,
+        ),
+      );
+
       final shelf.Handler finalReleaseHandler = pipeline.addHandler(releaseAssetServer.handle);
       runZonedGuarded(
         () {
@@ -458,10 +458,16 @@ class WebAssetServer implements AssetReader {
           connectedWebDeviceIds.isNotEmpty &&
           connectedWebDeviceIds.contains(globals.deviceManager?.specifiedDeviceId ?? 'chrome'),
     );
+    const List<String> responseHeadersToRemove = <String>['x-frame-options', 'SAMEORIGIN'];
+
     shelf.Pipeline pipeline = const shelf.Pipeline();
-    if (effectiveHeaders.isNotEmpty) {
-      pipeline = pipeline.addMiddleware(injectHeadersMiddleware(effectiveHeaders));
-    }
+    pipeline = pipeline.addMiddleware(
+      manageHeadersMiddleware(
+        headersToInjectOnRequest: effectiveHeaders,
+        headersToSetOnResponse: extraHeaders,
+        headersToRemoveFromResponse: responseHeadersToRemove,
+      ),
+    );
     if (enableDwds) {
       pipeline = pipeline.addMiddleware(middleware);
       pipeline = pipeline.addMiddleware(dwds.middleware);
