@@ -21,21 +21,21 @@ class DevConfig {
     this.proxy = const <ProxyConfig>[],
   });
 
-  factory DevConfig.fromYaml(YamlMap serverYaml) {
-    if (serverYaml['host'] is! String && serverYaml['host'] != null) {
-      throwToolExit('Host must be a String. Found ${serverYaml['host'].runtimeType}');
+  factory DevConfig.fromYaml(YamlMap yaml) {
+    if (yaml['host'] is! String && yaml['host'] != null) {
+      throwToolExit('Host must be a String. Found ${yaml['host'].runtimeType}');
     }
-    if (serverYaml['port'] is! int && serverYaml['port'] != null) {
-      throwToolExit('Port must be an int. Found ${serverYaml['port'].runtimeType}');
+    if (yaml['port'] is! int && yaml['port'] != null) {
+      throwToolExit('Port must be an int. Found ${yaml['port'].runtimeType}');
     }
-    if (serverYaml['headers'] is! YamlList && serverYaml['headers'] != null) {
-      throwToolExit('Headers must be a List<String>. Found ${serverYaml['headers'].runtimeType}');
+    if (yaml['headers'] is! YamlList && yaml['headers'] != null) {
+      throwToolExit('Headers must be a List<String>. Found ${yaml['headers'].runtimeType}');
     }
-    if (serverYaml['https'] is! YamlMap && serverYaml['https'] != null) {
-      throwToolExit('Https must be a Map. Found ${serverYaml['https'].runtimeType}');
+    if (yaml['https'] is! YamlMap && yaml['https'] != null) {
+      throwToolExit('Https must be a Map. Found ${yaml['https'].runtimeType}');
     }
-    if (serverYaml['browser'] is! YamlMap && serverYaml['browser'] != null) {
-      throwToolExit('Browser must be a Map. Found ${serverYaml['browser'].runtimeType}');
+    if (yaml['browser'] is! YamlMap && yaml['browser'] != null) {
+      throwToolExit('Browser must be a Map. Found ${yaml['browser'].runtimeType}');
     }
     if (yaml['experimental-hot-reload'] is! bool && yaml['experimental-hot-reload'] != null) {
       throwToolExit(
@@ -43,13 +43,9 @@ class DevConfig {
       );
     }
 
-    final List<String> headers =
-        (serverYaml['headers'] as YamlList?)?.map((dynamic e) => e.toString()).toList() ??
-        <String>[];
-
     final List<ProxyConfig> proxyRules = <ProxyConfig>[];
-    if (serverYaml['proxy'] is YamlMap) {
-      (serverYaml['proxy'] as YamlMap).forEach((dynamic key, dynamic value) {
+    if (yaml['proxy'] is YamlMap) {
+      (yaml['proxy'] as YamlMap).forEach((dynamic key, dynamic value) {
         if (value is YamlMap) {
           proxyRules.add(ProxyConfig.fromYaml(key.toString(), value));
         }
@@ -63,12 +59,7 @@ class DevConfig {
       https: yaml['https'] == null ? null : HttpsConfig.fromYaml(yaml['https'] as YamlMap),
       browser: yaml['browser'] == null ? null : BrowserConfig.fromYaml(yaml['browser'] as YamlMap),
       experimentalHotReload: yaml['experimental-hot-reload'] as bool?,
-      proxy: <String, ProxyConfig>{
-        for (final MapEntry<dynamic, dynamic> entry
-            in (yaml['proxy'] as YamlMap? ?? <dynamic, dynamic>{}).entries)
-          if (entry.key is String && entry.value is YamlMap)
-            entry.key as String: ProxyConfig.fromYaml(entry.value as YamlMap),
-      },
+      proxy: proxyRules,
     );
   }
 
@@ -129,7 +120,7 @@ class HttpsConfig {
 
 abstract class ProxyConfig {
   ProxyConfig({required this.target, this.rewrite});
-
+  
   factory ProxyConfig.fromYaml(String key, YamlMap yaml) {
     String Function(String)? rewriteFn;
     if (yaml['rewrite'] is bool && yaml['rewrite'] == true) {
@@ -262,7 +253,7 @@ class BrowserConfig {
 /// If `devconfig.yaml` is not found or cannot be parsed, it returns a [DevConfig]
 /// with default values.
 Future<DevConfig> loadDevConfig() async {
-  const String devConfigFilePath = 'devconfig.yaml';
+  const String devConfigFilePath = 'web/devconfig.yaml';
   final io.File devConfigFile = globals.fs.file(devConfigFilePath);
 
   if (!devConfigFile.existsSync()) {
