@@ -9,10 +9,8 @@ import 'package:yaml/yaml.dart';
 import '../base/common.dart';
 import '../globals.dart' as globals;
 
-/// Class that represents the web server configuration specified in a `devconfig.yaml` file.
 @immutable
 class DevConfig {
-  /// Create a new [DevConfig] object.
   const DevConfig({
     this.headers = const <String>[],
     this.host = 'localhost',
@@ -20,33 +18,42 @@ class DevConfig {
     this.https,
     this.browser,
     this.experimentalHotReload,
-    this.proxy = const <String, ProxyConfig>{},
+    this.proxy = const <ProxyConfig>[],
   });
 
-  /// Create a [DevConfig] from a `server` YAML map.
-  factory DevConfig.fromYaml(YamlMap yaml) {
-    if (yaml['host'] is! String && yaml['host'] != null) {
-      throwToolExit('Host must be a String. Found ${yaml['host'].runtimeType}');
+  factory DevConfig.fromYaml(YamlMap serverYaml) {
+    if (serverYaml['host'] is! String && serverYaml['host'] != null) {
+      throwToolExit('Host must be a String. Found ${serverYaml['host'].runtimeType}');
     }
-    if (yaml['port'] is! int && yaml['port'] != null) {
-      throwToolExit('Port must be an int. Found ${yaml['port'].runtimeType}');
+    if (serverYaml['port'] is! int && serverYaml['port'] != null) {
+      throwToolExit('Port must be an int. Found ${serverYaml['port'].runtimeType}');
     }
-    if (yaml['headers'] is! YamlList && yaml['headers'] != null) {
-      throwToolExit('Headers must be a List<String>. Found ${yaml['headers'].runtimeType}');
+    if (serverYaml['headers'] is! YamlList && serverYaml['headers'] != null) {
+      throwToolExit('Headers must be a List<String>. Found ${serverYaml['headers'].runtimeType}');
     }
-    if (yaml['https'] is! YamlMap && yaml['https'] != null) {
-      throwToolExit('Https must be a Map. Found ${yaml['https'].runtimeType}');
+    if (serverYaml['https'] is! YamlMap && serverYaml['https'] != null) {
+      throwToolExit('Https must be a Map. Found ${serverYaml['https'].runtimeType}');
     }
-    if (yaml['browser'] is! YamlMap && yaml['browser'] != null) {
-      throwToolExit('Browser must be a Map. Found ${yaml['browser'].runtimeType}');
+    if (serverYaml['browser'] is! YamlMap && serverYaml['browser'] != null) {
+      throwToolExit('Browser must be a Map. Found ${serverYaml['browser'].runtimeType}');
     }
     if (yaml['experimental-hot-reload'] is! bool && yaml['experimental-hot-reload'] != null) {
       throwToolExit(
         'experimental-hot-reload must be a bool. Found ${yaml['experimental-hot-reload'].runtimeType}',
       );
     }
-    if (yaml['proxy'] is! YamlMap && yaml['proxy'] != null) {
-      throwToolExit('proxy must be a Map. Found ${yaml['proxy'].runtimeType}');
+
+    final List<String> headers =
+        (serverYaml['headers'] as YamlList?)?.map((dynamic e) => e.toString()).toList() ??
+        <String>[];
+
+    final List<ProxyConfig> proxyRules = <ProxyConfig>[];
+    if (serverYaml['proxy'] is YamlMap) {
+      (serverYaml['proxy'] as YamlMap).forEach((dynamic key, dynamic value) {
+        if (value is YamlMap) {
+          proxyRules.add(ProxyConfig.fromYaml(key.toString(), value));
+        }
+      });
     }
 
     return DevConfig(
@@ -71,7 +78,7 @@ class DevConfig {
   final HttpsConfig? https;
   final BrowserConfig? browser;
   final bool? experimentalHotReload;
-  final Map<String, ProxyConfig> proxy;
+  final List<ProxyConfig> proxy;
 
   @override
   String toString() {
@@ -87,7 +94,6 @@ class DevConfig {
   }
 }
 
-/// HTTPS configuration for the web server.
 @immutable
 class HttpsConfig {
   /// Create a new [HttpsConfig] object.
@@ -109,10 +115,7 @@ class HttpsConfig {
     );
   }
 
-  /// The path to the SSL certificate.
   final String? certPath;
-
-  /// The path to the SSL certificate key.
   final String? certKeyPath;
 
   @override
@@ -124,30 +127,111 @@ class HttpsConfig {
   }
 }
 
-/// Proxy configuration for the web server.
-@immutable
-class ProxyConfig {
-  const ProxyConfig({required this.target});
+abstract class ProxyConfig {
+  ProxyConfig({required this.target, this.rewrite});
 
-  factory ProxyConfig.fromYaml(YamlMap yaml) {
-    return ProxyConfig(target: yaml['target'] as String);
+  factory ProxyConfig.fromYaml(String key, YamlMap yaml) {
+    String Function(String)? rewriteFn;
+    if (yaml['rewrite'] is bool && yaml['rewrite'] == true) {
+      rewriteFn = (String path) => path.replaceFirst(key, '');
+    } else {
+      final String? rewriteValue = yaml['rewrite']?.toString();
+      if (rewriteValue != null && rewriteValue.isNotEmpty) {
+        final List<String> parts = rewriteValue.split('->');
+        if (parts.length == 2) {
+          final RegExp pattern = RegExp(parts[0].trim());
+          final String replacementTemplate = parts[1].trim();
+
+          rewriteFn = (String path) {
+            final RegExpMatch? match = pattern.firstMatch(path);
+            if (match != null) {
+              String result = replacementTemplate;
+              for (int i = 0; i <= match.groupCount; i++) {
+                result = result.replaceAll('\$$i', match.group(i) ?? '');
+              }
+              return result;
+            }
+            return path;
+          };
+        }
+      }
+    }
+
+    if (key.startsWith('^')) {
+      try {
+        return RegexProxyConfig(
+          pattern: RegExp(key),
+          target: yaml['target'] as String,
+          rewrite: rewriteFn,
+        );
+      } on FormatException catch (e) {
+        globals.printStatus('Warning: Invalid regex pattern "$key". Treating as string prefix: $e');
+        return StringPrefixProxyConfig(
+          prefix: key,
+          target: yaml['target'] as String,
+          rewrite: rewriteFn,
+        );
+      }
+    } else {
+      return StringPrefixProxyConfig(
+        prefix: key,
+        target: yaml['target'] as String,
+        rewrite: rewriteFn,
+      );
+    }
   }
 
   final String target;
+  final String Function(String)? rewrite;
 
-  @override
-  String toString() {
-    return '{target: $target}';
+  bool matches(String path);
+
+  String getRewrittenPath(String path) {
+    if (rewrite != null) {
+      return rewrite!(path);
+    }
+    return path;
   }
 }
 
-/// Browser configuration for the web server.
+class StringPrefixProxyConfig extends ProxyConfig {
+  StringPrefixProxyConfig({required this.prefix, required super.target, super.rewrite});
+
+  final String prefix;
+
+  @override
+  bool matches(String path) {
+    return path.startsWith(prefix);
+  }
+
+  @override
+  String toString() {
+    return '{prefix: $prefix, target: $target, rewrite: ${rewrite != null ? 'yes' : 'no'}}';
+  }
+}
+
+class RegexProxyConfig extends ProxyConfig {
+  RegexProxyConfig({required this.pattern, required super.target, super.rewrite});
+
+  final RegExp pattern;
+
+  @override
+  bool matches(String path) {
+    return pattern.hasMatch(path);
+  }
+
+  @override
+  String toString() {
+    return '{pattern: ${pattern.pattern}, target: $target, rewrite: ${rewrite != null ? 'yes' : 'no'}}';
+  }
+}
+
 @immutable
 class BrowserConfig {
+  
   /// Create a new [BrowserConfig] object.
   const BrowserConfig({required this.path, required this.args});
 
-  /// Create a [BrowserConfig] from a `browser` YAML map.
   factory BrowserConfig.fromYaml(YamlMap yaml) {
     if (yaml['path'] is! String && yaml['path'] != null) {
       throwToolExit('Browser path must be a String. Found ${yaml['path'].runtimeType}');
@@ -161,10 +245,7 @@ class BrowserConfig {
     );
   }
 
-  /// The path to the browser executable.
   final String? path;
-
-  /// The arguments to pass to the browser executable.
   final List<String> args;
 
   @override
@@ -210,7 +291,6 @@ Future<DevConfig> loadDevConfig() async {
           (contents.containsKey('server') && contents['server'] is YamlNode)
               ? (contents['server'] as YamlNode).span
               : contents.span;
-
       throw YamlException(
         'The "$devConfigFilePath" file is found, but the "server" key is '
         'missing or malformed. It must be a YAML map.',
@@ -280,7 +360,6 @@ shelf.Middleware manageHeadersMiddleware({
       headersToSetOnResponse.forEach((String key, String value) {
         newResponseHeaders[key.toLowerCase()] = value;
       });
-
       return response.change(headers: newResponseHeaders);
     };
   };
