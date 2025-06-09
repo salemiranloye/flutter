@@ -26,6 +26,7 @@ import '../runner/flutter_command.dart';
 import '../runner/flutter_command_runner.dart';
 import '../tracing.dart';
 import '../web/compile.dart';
+import '../isolated/devfs_config.dart';
 import '../web/web_constants.dart';
 import '../web/web_runner.dart';
 import 'daemon.dart';
@@ -260,6 +261,15 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
   @protected
   Future<DebuggingOptions> createDebuggingOptions(bool webMode) async {
     final BuildInfo buildInfo = await getBuildInfo();
+     final DevConfig devConfig = webMode
+      ? await loadDevConfig(
+          hostname: stringArg('web-hostname'),
+          port: stringArg('web-port'),
+          tlsCertPath: stringArg('web-tls-cert-path'),
+          tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+        )
+      : const DevConfig();
+
     final int? webBrowserDebugPort =
         featureFlags.isWebEnabled && argResults!.wasParsed('web-browser-debug-port')
             ? int.parse(stringArg('web-browser-debug-port')!)
@@ -299,6 +309,7 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         enableEmbedderApi: enableEmbedderApi,
         usingCISystem: usingCISystem,
         debugLogsDirectoryPath: debugLogsDirectoryPath,
+        devConfig: devConfig,
       );
     } else {
       return DebuggingOptions.enabled(
@@ -366,6 +377,7 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         enableDevTools: boolArg(FlutterCommand.kEnableDevTools),
         ipv6: boolArg(FlutterCommand.ipv6Flag),
         printDtd: boolArg(FlutterGlobalOptions.kPrintDtd, global: true),
+        devConfig: devConfig,
       );
     }
   }

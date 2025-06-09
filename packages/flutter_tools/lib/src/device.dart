@@ -17,6 +17,7 @@ import 'build_info.dart';
 import 'devfs.dart';
 import 'device_port_forwarder.dart';
 import 'device_vm_service_discovery_for_attach.dart';
+import 'isolated/devfs_config.dart';
 import 'project.dart';
 import 'vmservice.dart';
 import 'web/compile.dart';
@@ -976,7 +977,9 @@ class DebuggingOptions {
     this.ipv6 = false,
     this.google3WorkspaceRoot,
     this.printDtd = false,
+    DevConfig? devConfig,
   }) : debuggingEnabled = true,
+       devConfig = devConfig ?? const DevConfig(),
        webRenderer = webRenderer ?? WebRendererMode.getDefault(useWasm: webUseWasm);
 
   DebuggingOptions.disabled(
@@ -1005,7 +1008,9 @@ class DebuggingOptions {
     this.enableEmbedderApi = false,
     this.usingCISystem = false,
     this.debugLogsDirectoryPath,
+    DevConfig? devConfig,
   }) : debuggingEnabled = false,
+       devConfig = devConfig ?? const DevConfig(),
        useTestFonts = false,
        startPaused = false,
        dartFlags = '',
@@ -1091,6 +1096,7 @@ class DebuggingOptions {
     required this.ipv6,
     required this.google3WorkspaceRoot,
     required this.printDtd,
+    required this.devConfig,
   });
 
   final bool debuggingEnabled;
@@ -1136,6 +1142,7 @@ class DebuggingOptions {
   final bool ipv6;
   final String? google3WorkspaceRoot;
   final bool printDtd;
+  final DevConfig devConfig;
 
   /// Whether the tool should try to uninstall a previously installed version of the app.
   ///
@@ -1354,6 +1361,7 @@ class DebuggingOptions {
         ipv6: (json['ipv6'] as bool?) ?? false,
         google3WorkspaceRoot: json['google3WorkspaceRoot'] as String?,
         printDtd: (json['printDtd'] as bool?) ?? false,
+        devConfig: const DevConfig(),
       );
 }
 

@@ -998,8 +998,6 @@ class WebDevFS implements DevFS {
 
   @override
   Future<Uri> create() async {
-    final DevConfig devConfig = await loadDevConfig();
-
     webAssetServer = await WebAssetServer.start(
       chromiumLauncher,
       urlTunneller,
