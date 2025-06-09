@@ -977,9 +977,8 @@ class DebuggingOptions {
     this.ipv6 = false,
     this.google3WorkspaceRoot,
     this.printDtd = false,
-    DevConfig? devConfig,
+    this.devConfig = const DevConfig(),
   }) : debuggingEnabled = true,
-       devConfig = devConfig ?? const DevConfig(),
        webRenderer = webRenderer ?? WebRendererMode.getDefault(useWasm: webUseWasm);
 
   DebuggingOptions.disabled(
@@ -1008,9 +1007,8 @@ class DebuggingOptions {
     this.enableEmbedderApi = false,
     this.usingCISystem = false,
     this.debugLogsDirectoryPath,
-    DevConfig? devConfig,
+    this.devConfig = const DevConfig(),
   }) : debuggingEnabled = false,
-       devConfig = devConfig ?? const DevConfig(),
        useTestFonts = false,
        startPaused = false,
        dartFlags = '',
