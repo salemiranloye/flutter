@@ -26,6 +26,7 @@ import '../drive/drive_service.dart';
 import '../drive/web_driver_service.dart' show Browser;
 import '../globals.dart' as globals;
 import '../ios/devices.dart';
+import '../isolated/devfs_config.dart';
 import '../resident_runner.dart';
 import '../runner/flutter_command.dart'
     show FlutterCommandCategory, FlutterCommandResult, FlutterOptions;
@@ -324,7 +325,16 @@ class DriveCommand extends RunCommandBase {
     );
     final DriverService driverService = _flutterDriverFactory!.createDriverService(web);
     final BuildInfo buildInfo = await getBuildInfo();
-    final DebuggingOptions debuggingOptions = await createDebuggingOptions(web);
+     DevConfig? devConfig;
+    if (web) {
+      devConfig = await loadDevConfig(
+        hostname: stringArg('web-hostname'),
+        port: stringArg('web-port'),
+        tlsCertPath: stringArg('web-tls-cert-path'),
+        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+      );
+    }
+    final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
     final File? applicationBinary =
         applicationBinaryPath == null ? null : _fileSystem.file(applicationBinaryPath);
 

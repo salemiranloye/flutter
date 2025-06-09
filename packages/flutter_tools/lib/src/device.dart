@@ -947,10 +947,6 @@ class DebuggingOptions {
     this.deviceVmServicePort,
     this.ddsPort,
     this.devToolsServerAddress,
-    this.hostname,
-    this.port,
-    this.tlsCertPath,
-    this.tlsCertKeyPath,
     this.webEnableExposeUrl,
     this.webUseSseForDebugProxy = true,
     this.webUseSseForDebugBackend = true,
@@ -984,10 +980,6 @@ class DebuggingOptions {
   DebuggingOptions.disabled(
     this.buildInfo, {
     this.dartEntrypointArgs = const <String>[],
-    this.port,
-    this.hostname,
-    this.tlsCertPath,
-    this.tlsCertKeyPath,
     this.webEnableExposeUrl,
     this.webUseSseForDebugProxy = true,
     this.webUseSseForDebugBackend = true,
@@ -1064,10 +1056,6 @@ class DebuggingOptions {
     required this.disablePortPublication,
     required this.ddsPort,
     required this.devToolsServerAddress,
-    required this.port,
-    required this.hostname,
-    required this.tlsCertPath,
-    required this.tlsCertKeyPath,
     required this.webEnableExposeUrl,
     required this.webUseSseForDebugProxy,
     required this.webUseSseForDebugBackend,
@@ -1094,7 +1082,7 @@ class DebuggingOptions {
     required this.ipv6,
     required this.google3WorkspaceRoot,
     required this.printDtd,
-    required this.devConfig,
+    this.devConfig,
   });
 
   final bool debuggingEnabled;
@@ -1122,10 +1110,6 @@ class DebuggingOptions {
   final bool disablePortPublication;
   final int? ddsPort;
   final Uri? devToolsServerAddress;
-  final String? port;
-  final String? hostname;
-  final String? tlsCertPath;
-  final String? tlsCertKeyPath;
   final bool? webEnableExposeUrl;
   final bool webUseSseForDebugProxy;
   final bool webUseSseForDebugBackend;
@@ -1140,7 +1124,7 @@ class DebuggingOptions {
   final bool ipv6;
   final String? google3WorkspaceRoot;
   final bool printDtd;
-  final DevConfig devConfig;
+  final DevConfig? devConfig;
 
   /// Whether the tool should try to uninstall a previously installed version of the app.
   ///
@@ -1261,10 +1245,6 @@ class DebuggingOptions {
     'disablePortPublication': disablePortPublication,
     'ddsPort': ddsPort,
     'devToolsServerAddress': devToolsServerAddress.toString(),
-    'port': port,
-    'hostname': hostname,
-    'tlsCertPath': tlsCertPath,
-    'tlsCertKeyPath': tlsCertKeyPath,
     'webEnableExposeUrl': webEnableExposeUrl,
     'webUseSseForDebugProxy': webUseSseForDebugProxy,
     'webUseSseForDebugBackend': webUseSseForDebugBackend,
@@ -1329,10 +1309,6 @@ class DebuggingOptions {
             json['devToolsServerAddress'] != null
                 ? Uri.parse(json['devToolsServerAddress']! as String)
                 : null,
-        port: json['port'] as String?,
-        hostname: json['hostname'] as String?,
-        tlsCertPath: json['tlsCertPath'] as String?,
-        tlsCertKeyPath: json['tlsCertKeyPath'] as String?,
         webEnableExposeUrl: json['webEnableExposeUrl'] as bool?,
         webUseSseForDebugProxy: json['webUseSseForDebugProxy']! as bool,
         webUseSseForDebugBackend: json['webUseSseForDebugBackend']! as bool,

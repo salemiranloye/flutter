@@ -259,17 +259,8 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
   /// Create a debugging options instance for the current `run` or `drive` invocation.
   @visibleForTesting
   @protected
-  Future<DebuggingOptions> createDebuggingOptions(bool webMode) async {
+  Future<DebuggingOptions> createDebuggingOptions({DevConfig? devConfig}) async {
     final BuildInfo buildInfo = await getBuildInfo();
-     final DevConfig devConfig = webMode
-      ? await loadDevConfig(
-          hostname: stringArg('web-hostname'),
-          port: stringArg('web-port'),
-          tlsCertPath: stringArg('web-tls-cert-path'),
-          tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
-        )
-      : const DevConfig();
-
     final int? webBrowserDebugPort =
         featureFlags.isWebEnabled && argResults!.wasParsed('web-browser-debug-port')
             ? int.parse(stringArg('web-browser-debug-port')!)
@@ -284,10 +275,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
       return DebuggingOptions.disabled(
         buildInfo,
         dartEntrypointArgs: stringsArg('dart-entrypoint-args'),
-        hostname: featureFlags.isWebEnabled ? stringArg('web-hostname') : '',
-        port: featureFlags.isWebEnabled ? stringArg('web-port') : '',
-        tlsCertPath: featureFlags.isWebEnabled ? stringArg('web-tls-cert-path') : null,
-        tlsCertKeyPath: featureFlags.isWebEnabled ? stringArg('web-tls-cert-key-path') : null,
         webUseSseForDebugProxy:
             featureFlags.isWebEnabled && stringArg('web-server-debug-protocol') == 'sse',
         webUseSseForDebugBackend:
@@ -340,10 +327,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         ddsPort: ddsPort,
         devToolsServerAddress: devToolsServerAddress,
         verboseSystemLogs: boolArg('verbose-system-logs'),
-        hostname: featureFlags.isWebEnabled ? stringArg('web-hostname') : '',
-        port: featureFlags.isWebEnabled ? stringArg('web-port') : '',
-        tlsCertPath: featureFlags.isWebEnabled ? stringArg('web-tls-cert-path') : null,
-        tlsCertKeyPath: featureFlags.isWebEnabled ? stringArg('web-tls-cert-key-path') : null,
         webUseSseForDebugProxy:
             featureFlags.isWebEnabled && stringArg('web-server-debug-protocol') == 'sse',
         webUseSseForDebugBackend:
@@ -672,6 +655,7 @@ class RunCommand extends RunCommandBase {
         featureFlags.isWebEnabled &&
         devices!.length == 1 &&
         await devices!.single.targetPlatform == TargetPlatform.web_javascript;
+        // instead of having webMode be boolean maybe make it store the devConfig Object
 
     if (useWasm && !webMode) {
       throwToolExit('--wasm is only supported on the web platform');
@@ -696,52 +680,65 @@ class RunCommand extends RunCommandBase {
 
   @visibleForTesting
   Future<ResidentRunner> createRunner({
-    required bool hotMode,
-    required List<FlutterDevice> flutterDevices,
-    required String? applicationBinaryPath,
-    required FlutterProject flutterProject,
-  }) async {
-    if (hotMode && !webMode) {
-      return HotRunner(
-        flutterDevices,
-        target: targetFile,
-        debuggingOptions: await createDebuggingOptions(webMode),
-        benchmarkMode: boolArg('benchmark'),
-        applicationBinary:
-            applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
-        projectRootPath: stringArg('project-root'),
-        dillOutputPath: stringArg('output-dill'),
-        stayResident: stayResident,
-        analytics: globals.analytics,
-        nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
-      );
-    } else if (webMode) {
-      return webRunnerFactory!.createWebRunner(
-        flutterDevices.single,
-        target: targetFile,
-        flutterProject: flutterProject,
-        debuggingOptions: await createDebuggingOptions(webMode),
-        stayResident: stayResident,
-        fileSystem: globals.fs,
-        analytics: globals.analytics,
-        logger: globals.logger,
-        terminal: globals.terminal,
-        platform: globals.platform,
-        outputPreferences: globals.outputPreferences,
-        systemClock: globals.systemClock,
-      );
-    }
-    return ColdRunner(
-      flutterDevices,
-      target: targetFile,
-      debuggingOptions: await createDebuggingOptions(webMode),
-      traceStartup: traceStartup,
-      awaitFirstFrameWhenTracing: awaitFirstFrameWhenTracing,
-      applicationBinary:
-          applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
-      stayResident: stayResident,
+  required bool hotMode,
+  required List<FlutterDevice> flutterDevices,
+  required String? applicationBinaryPath,
+  required FlutterProject flutterProject,
+}) async {
+  DevConfig? devConfig;
+
+  if (webMode) {
+    devConfig = await loadDevConfig(
+      hostname: stringArg('web-hostname'),
+      port: stringArg('web-port'),
+      tlsCertPath: stringArg('web-tls-cert-path'),
+      tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
     );
   }
+
+  final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
+
+  if (hotMode && !webMode) {
+    return HotRunner(
+      flutterDevices,
+      target: targetFile,
+      debuggingOptions: debuggingOptions,
+      benchmarkMode: boolArg('benchmark'),
+      applicationBinary:
+          applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
+      projectRootPath: stringArg('project-root'),
+      dillOutputPath: stringArg('output-dill'),
+      stayResident: stayResident,
+      analytics: globals.analytics,
+      nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
+    );
+  } else if (webMode) {
+    return webRunnerFactory!.createWebRunner(
+      flutterDevices.single,
+      target: targetFile,
+      flutterProject: flutterProject,
+      debuggingOptions: debuggingOptions,
+      stayResident: stayResident,
+      fileSystem: globals.fs,
+      analytics: globals.analytics,
+      logger: globals.logger,
+      terminal: globals.terminal,
+      platform: globals.platform,
+      outputPreferences: globals.outputPreferences,
+      systemClock: globals.systemClock,
+    );
+  }
+  return ColdRunner(
+    flutterDevices,
+    target: targetFile,
+    debuggingOptions: debuggingOptions,
+    traceStartup: traceStartup,
+    awaitFirstFrameWhenTracing: awaitFirstFrameWhenTracing,
+    applicationBinary:
+        applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
+    stayResident: stayResident,
+  );
+}
 
   @visibleForTesting
   Daemon createMachineDaemon() {
@@ -762,13 +759,25 @@ class RunCommand extends RunCommandBase {
       }
       final Daemon daemon = createMachineDaemon();
       late AppInstance app;
+      DevConfig? devConfig;
+
+    if (webMode) {
+      devConfig = await loadDevConfig(
+        hostname: stringArg('web-hostname'),
+        port: stringArg('web-port'),
+        tlsCertPath: stringArg('web-tls-cert-path'),
+        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+      );
+    }
+
+      final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
       try {
         app = await daemon.appDomain.startApp(
           devices!.first,
           globals.fs.currentDirectory.path,
           targetFile,
           route,
-          await createDebuggingOptions(webMode),
+          debuggingOptions,
           hotMode,
           applicationBinary:
               applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),

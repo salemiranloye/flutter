@@ -275,15 +275,15 @@ class ResidentWebRunner extends ResidentRunner {
     try {
       return await asyncGuard(() async {
         Future<int> getPort() async {
-          if (debuggingOptions.port == null) {
+          if (debuggingOptions.devConfig?.port == null) {
             return globals.os.findFreePort();
           }
 
-          final int? port = int.tryParse(debuggingOptions.port ?? '');
+          final int? port = int.tryParse(debuggingOptions.devConfig?.port?.toString() ?? '');
 
           if (port == null) {
             logger.printError('''
-Received a non-integer value for port: ${debuggingOptions.port}
+Received a non-integer value for port: ${debuggingOptions.devConfig?.port}
 A randomly-chosen available port will be used instead.
 ''');
             return globals.os.findFreePort();
@@ -291,7 +291,7 @@ A randomly-chosen available port will be used instead.
 
           if (port < 0 || port > 65535) {
             throwToolExit('''
-Invalid port: ${debuggingOptions.port}
+Invalid port: ${debuggingOptions.devConfig?.port}
 Please provide a valid TCP port (an integer between 0 and 65535, inclusive).
     ''');
           }
@@ -305,7 +305,7 @@ Please provide a valid TCP port (an integer between 0 and 65535, inclusive).
                 : null;
 
         device!.devFS = WebDevFS(
-          devConfig: debuggingOptions.devConfig,
+          devConfig: debuggingOptions.devConfig ?? const DevConfig(),
           packagesFilePath: packagesFilePath,
           urlTunneller: _urlTunneller,
           useSseForDebugProxy: debuggingOptions.webUseSseForDebugProxy,
@@ -328,7 +328,7 @@ Please provide a valid TCP port (an integer between 0 and 65535, inclusive).
           isWindows: _platform.isWindows,
         );
         Uri url = await device!.devFS!.create();
-        if (debuggingOptions.tlsCertKeyPath != null && debuggingOptions.tlsCertPath != null) {
+        if (debuggingOptions.devConfig!.https?.certKeyPath != null && debuggingOptions.devConfig!.https?.certPath != null) {
           url = url.replace(scheme: 'https');
         }
         if (debuggingOptions.buildInfo.isDebug && !debuggingOptions.webUseWasm) {
