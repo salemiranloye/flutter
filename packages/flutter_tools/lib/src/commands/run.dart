@@ -479,7 +479,7 @@ class RunCommand extends RunCommandBase {
   String get category => FlutterCommandCategory.project;
 
   List<Device>? devices;
-  bool webMode = false;
+  late final DevConfig? devConfig;
 
   String? get userIdentifier => stringArg(FlutterOptions.kDeviceUser);
 
@@ -651,13 +651,20 @@ class RunCommand extends RunCommandBase {
 
     // Only support "web mode" with a single web device due to resident runner
     // refactoring required otherwise.
-    webMode =
+    if (
         featureFlags.isWebEnabled &&
         devices!.length == 1 &&
-        await devices!.single.targetPlatform == TargetPlatform.web_javascript;
+        await devices!.single.targetPlatform == TargetPlatform.web_javascript) {
+          devConfig = await loadDevConfig(
+            hostname: stringArg('web-hostname'),
+            port: stringArg('web-port'),
+            tlsCertPath: stringArg('web-tls-cert-path'),
+            tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+          );
+        }
         // instead of having webMode be boolean maybe make it store the devConfig Object
 
-    if (useWasm && !webMode) {
+    if (useWasm && devConfig == null) {
       throwToolExit('--wasm is only supported on the web platform');
     }
 
@@ -685,20 +692,9 @@ class RunCommand extends RunCommandBase {
   required String? applicationBinaryPath,
   required FlutterProject flutterProject,
 }) async {
-  DevConfig? devConfig;
-
-  if (webMode) {
-    devConfig = await loadDevConfig(
-      hostname: stringArg('web-hostname'),
-      port: stringArg('web-port'),
-      tlsCertPath: stringArg('web-tls-cert-path'),
-      tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
-    );
-  }
-
   final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
 
-  if (hotMode && !webMode) {
+  if (hotMode && devConfig == null) {
     return HotRunner(
       flutterDevices,
       target: targetFile,
@@ -712,7 +708,7 @@ class RunCommand extends RunCommandBase {
       analytics: globals.analytics,
       nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
     );
-  } else if (webMode) {
+  } else if (devConfig != null) {
     return webRunnerFactory!.createWebRunner(
       flutterDevices.single,
       target: targetFile,
@@ -759,16 +755,6 @@ class RunCommand extends RunCommandBase {
       }
       final Daemon daemon = createMachineDaemon();
       late AppInstance app;
-      DevConfig? devConfig;
-
-    if (webMode) {
-      devConfig = await loadDevConfig(
-        hostname: stringArg('web-hostname'),
-        port: stringArg('web-port'),
-        tlsCertPath: stringArg('web-tls-cert-path'),
-        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
-      );
-    }
 
       final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
       try {
