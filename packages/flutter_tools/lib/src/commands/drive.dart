@@ -305,7 +305,14 @@ class DriveCommand extends RunCommandBase {
       _logger.printError('Screenshot not supported for ${device.displayName}.');
     }
 
-    final bool web = device is WebServerDevice || device is ChromiumDevice;
+    final DevConfig? devConfig = (device is WebServerDevice || device is ChromiumDevice)
+    ? await loadDevConfig(
+        hostname: stringArg('web-hostname'),
+        port: stringArg('web-port'),
+        tlsCertPath: stringArg('web-tls-cert-path'),
+        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+      )
+    : null;
     _flutterDriverFactory ??= FlutterDriverFactory(
       applicationPackageFactory: ApplicationPackageFactory.instance!,
       logger: _logger,
@@ -323,17 +330,8 @@ class DriveCommand extends RunCommandBase {
       logger: _logger,
       throwOnError: false,
     );
-    final DriverService driverService = _flutterDriverFactory!.createDriverService(web);
+    final DriverService driverService = _flutterDriverFactory!.createDriverService(devConfig != null);
     final BuildInfo buildInfo = await getBuildInfo();
-     DevConfig? devConfig;
-    if (web) {
-      devConfig = await loadDevConfig(
-        hostname: stringArg('web-hostname'),
-        port: stringArg('web-port'),
-        tlsCertPath: stringArg('web-tls-cert-path'),
-        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
-      );
-    }
     final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
     final File? applicationBinary =
         applicationBinaryPath == null ? null : _fileSystem.file(applicationBinaryPath);
@@ -351,7 +349,7 @@ class DriveCommand extends RunCommandBase {
           mainPath: targetFile,
           platformArgs: <String, Object>{
             if (traceStartup) 'trace-startup': traceStartup,
-            if (web) '--no-launch-chrome': true,
+            if (devConfig != null) '--no-launch-chrome': true,
           },
         );
       } else {
