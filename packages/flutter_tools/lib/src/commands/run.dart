@@ -661,8 +661,9 @@ class RunCommand extends RunCommandBase {
             tlsCertPath: stringArg('web-tls-cert-path'),
             tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
           );
+        } else {
+          devConfig = null;
         }
-        // instead of having webMode be boolean maybe make it store the devConfig Object
 
     if (useWasm && devConfig == null) {
       throwToolExit('--wasm is only supported on the web platform');
