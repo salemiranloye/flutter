@@ -651,19 +651,18 @@ class RunCommand extends RunCommandBase {
 
     // Only support "web mode" with a single web device due to resident runner
     // refactoring required otherwise.
-    if (
-        featureFlags.isWebEnabled &&
+    if (featureFlags.isWebEnabled &&
         devices!.length == 1 &&
         await devices!.single.targetPlatform == TargetPlatform.web_javascript) {
-          _devConfig = await loadDevConfig(
-            hostname: stringArg('web-hostname'),
-            port: stringArg('web-port'),
-            tlsCertPath: stringArg('web-tls-cert-path'),
-            tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
-          );
-        } else {
-          _devConfig = null;
-        }
+      _devConfig = await loadDevConfig(
+        hostname: stringArg('web-hostname'),
+        port: stringArg('web-port'),
+        tlsCertPath: stringArg('web-tls-cert-path'),
+        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+      );
+    } else {
+      _devConfig = null;
+    }
 
     if (useWasm && _devConfig == null) {
       throwToolExit('--wasm is only supported on the web platform');
@@ -688,54 +687,54 @@ class RunCommand extends RunCommandBase {
 
   @visibleForTesting
   Future<ResidentRunner> createRunner({
-  required bool hotMode,
-  required List<FlutterDevice> flutterDevices,
-  required String? applicationBinaryPath,
-  required FlutterProject flutterProject,
-}) async {
-  final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: _devConfig);
+    required bool hotMode,
+    required List<FlutterDevice> flutterDevices,
+    required String? applicationBinaryPath,
+    required FlutterProject flutterProject,
+  }) async {
+    final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: _devConfig);
 
-  if (hotMode && _devConfig == null) {
-    return HotRunner(
+    if (hotMode && _devConfig == null) {
+      return HotRunner(
+        flutterDevices,
+        target: targetFile,
+        debuggingOptions: debuggingOptions,
+        benchmarkMode: boolArg('benchmark'),
+        applicationBinary:
+            applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
+        projectRootPath: stringArg('project-root'),
+        dillOutputPath: stringArg('output-dill'),
+        stayResident: stayResident,
+        analytics: globals.analytics,
+        nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
+      );
+    } else if (_devConfig != null) {
+      return webRunnerFactory!.createWebRunner(
+        flutterDevices.single,
+        target: targetFile,
+        flutterProject: flutterProject,
+        debuggingOptions: debuggingOptions,
+        stayResident: stayResident,
+        fileSystem: globals.fs,
+        analytics: globals.analytics,
+        logger: globals.logger,
+        terminal: globals.terminal,
+        platform: globals.platform,
+        outputPreferences: globals.outputPreferences,
+        systemClock: globals.systemClock,
+      );
+    }
+    return ColdRunner(
       flutterDevices,
       target: targetFile,
       debuggingOptions: debuggingOptions,
-      benchmarkMode: boolArg('benchmark'),
+      traceStartup: traceStartup,
+      awaitFirstFrameWhenTracing: awaitFirstFrameWhenTracing,
       applicationBinary:
           applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
-      projectRootPath: stringArg('project-root'),
-      dillOutputPath: stringArg('output-dill'),
       stayResident: stayResident,
-      analytics: globals.analytics,
-      nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
-    );
-  } else if (_devConfig != null) {
-    return webRunnerFactory!.createWebRunner(
-      flutterDevices.single,
-      target: targetFile,
-      flutterProject: flutterProject,
-      debuggingOptions: debuggingOptions,
-      stayResident: stayResident,
-      fileSystem: globals.fs,
-      analytics: globals.analytics,
-      logger: globals.logger,
-      terminal: globals.terminal,
-      platform: globals.platform,
-      outputPreferences: globals.outputPreferences,
-      systemClock: globals.systemClock,
     );
   }
-  return ColdRunner(
-    flutterDevices,
-    target: targetFile,
-    debuggingOptions: debuggingOptions,
-    traceStartup: traceStartup,
-    awaitFirstFrameWhenTracing: awaitFirstFrameWhenTracing,
-    applicationBinary:
-        applicationBinaryPath == null ? null : globals.fs.file(applicationBinaryPath),
-    stayResident: stayResident,
-  );
-}
 
   @visibleForTesting
   Daemon createMachineDaemon() {

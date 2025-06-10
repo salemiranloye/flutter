@@ -309,12 +309,13 @@ Future<DevConfig> loadDevConfig({
   return DevConfig(
     host: hostname ?? fileConfig.host,
     port: port != null ? int.tryParse(port) : fileConfig.port,
-    https: (tlsCertPath != null || tlsCertKeyPath != null || fileConfig.https != null)
-        ? HttpsConfig(
-            certPath: tlsCertPath ?? fileConfig.https?.certPath,
-            certKeyPath: tlsCertKeyPath ?? fileConfig.https?.certKeyPath,
-          )
-        : null,
+    https:
+        (tlsCertPath != null || tlsCertKeyPath != null || fileConfig.https != null)
+            ? HttpsConfig(
+              certPath: tlsCertPath ?? fileConfig.https?.certPath,
+              certKeyPath: tlsCertKeyPath ?? fileConfig.https?.certKeyPath,
+            )
+            : null,
     headers: fileConfig.headers,
     browser: fileConfig.browser,
     experimentalHotReload: fileConfig.experimentalHotReload,
