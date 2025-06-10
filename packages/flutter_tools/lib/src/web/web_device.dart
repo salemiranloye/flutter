@@ -133,8 +133,8 @@ abstract class ChromiumDevice extends Device {
             .childDirectory('.dart_tool')
             .childDirectory('chrome-device'),
         headless: debuggingOptions.webRunHeadless,
-        debugPort: debuggingOptions.devConfig?.browser?.debugPort,
-        webBrowserFlags: debuggingOptions.devConfig?.browser?.flags ?? <String>[],
+        debugPort: debuggingOptions.webBrowserDebugPort,
+        webBrowserFlags: debuggingOptions.webBrowserFlags,
       );
     }
     _logger.sendEvent('app.webLaunchUrl', <String, Object>{'url': url, 'launched': launchChrome});
