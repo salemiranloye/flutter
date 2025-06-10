@@ -276,31 +276,6 @@ class ResidentWebRunner extends ResidentRunner {
 
     try {
       return await asyncGuard(() async {
-        Future<int> getPort() async {
-          if (debuggingOptions.devConfig?.port == null) {
-            return globals.os.findFreePort();
-          }
-
-          final int? port = int.tryParse(debuggingOptions.devConfig?.port?.toString() ?? '');
-
-          if (port == null) {
-            logger.printError('''
-Received a non-integer value for port: ${debuggingOptions.devConfig?.port}
-A randomly-chosen available port will be used instead.
-''');
-            return globals.os.findFreePort();
-          }
-
-          if (port < 0 || port > 65535) {
-            throwToolExit('''
-Invalid port: ${debuggingOptions.devConfig?.port}
-Please provide a valid TCP port (an integer between 0 and 65535, inclusive).
-    ''');
-          }
-
-          return port;
-        }
-
         final ExpressionCompiler? expressionCompiler =
             debuggingOptions.webEnableExpressionEvaluation
                 ? WebExpressionCompiler(device!.generator!, fileSystem: _fileSystem)
