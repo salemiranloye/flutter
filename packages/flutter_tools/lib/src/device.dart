@@ -952,6 +952,8 @@ class DebuggingOptions {
     this.webUseSseForDebugBackend = true,
     this.webUseSseForInjectedClient = true,
     this.webRunHeadless = false,
+    this.webBrowserDebugPort,
+    this.webBrowserFlags = const <String>[],
     this.webEnableExpressionEvaluation = false,
     this.webLaunchUrl,
     WebRendererMode? webRenderer,
@@ -982,6 +984,8 @@ class DebuggingOptions {
     this.webUseSseForDebugBackend = true,
     this.webUseSseForInjectedClient = true,
     this.webRunHeadless = false,
+    this.webBrowserDebugPort,
+    this.webBrowserFlags = const <String>[],
     this.webLaunchUrl,
     WebRendererMode? webRenderer,
     this.webUseWasm = false,
@@ -1055,6 +1059,8 @@ class DebuggingOptions {
     required this.webUseSseForDebugBackend,
     required this.webUseSseForInjectedClient,
     required this.webRunHeadless,
+    required this.webBrowserDebugPort,
+    required this.webBrowserFlags,
     required this.webEnableExpressionEvaluation,
     required this.webLaunchUrl,
     required this.webRenderer,
@@ -1129,6 +1135,12 @@ class DebuggingOptions {
   /// browser with full graphics stack. Some browsers provide a special
   /// "headless" mode that runs the browser with no graphics.
   final bool webRunHeadless;
+
+  /// The port the browser should use for its debugging protocol.
+  final int? webBrowserDebugPort;
+
+  /// Arbitrary browser flags.
+  final List<String> webBrowserFlags;
 
   /// Enable expression evaluation for web target.
   final bool webEnableExpressionEvaluation;
@@ -1233,6 +1245,8 @@ class DebuggingOptions {
     'webUseSseForDebugBackend': webUseSseForDebugBackend,
     'webUseSseForInjectedClient': webUseSseForInjectedClient,
     'webRunHeadless': webRunHeadless,
+    'webBrowserDebugPort': webBrowserDebugPort,
+    'webBrowserFlags': webBrowserFlags,
     'webEnableExpressionEvaluation': webEnableExpressionEvaluation,
     'webLaunchUrl': webLaunchUrl,
     'webRenderer': webRenderer.name,
@@ -1294,6 +1308,8 @@ class DebuggingOptions {
         webUseSseForDebugBackend: json['webUseSseForDebugBackend']! as bool,
         webUseSseForInjectedClient: json['webUseSseForInjectedClient']! as bool,
         webRunHeadless: json['webRunHeadless']! as bool,
+        webBrowserDebugPort: json['webBrowserDebugPort'] as int?,
+        webBrowserFlags: (json['webBrowserFlags']! as List<dynamic>).cast<String>(),
         webEnableExpressionEvaluation: json['webEnableExpressionEvaluation']! as bool,
         webLaunchUrl: json['webLaunchUrl'] as String?,
         webRenderer: WebRendererMode.values.byName(json['webRenderer']! as String),

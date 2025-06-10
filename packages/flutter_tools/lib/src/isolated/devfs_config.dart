@@ -16,8 +16,6 @@ class DevConfig {
     this.host = 'localhost',
     this.port = 0,
     this.https,
-    this.browser,
-    this.experimentalHotReload,
     this.proxy = const <ProxyConfig>[],
   });
 
@@ -33,14 +31,6 @@ class DevConfig {
     }
     if (yaml['https'] is! YamlMap && yaml['https'] != null) {
       throwToolExit('Https must be a Map. Found ${yaml['https'].runtimeType}');
-    }
-    if (yaml['browser'] is! YamlMap && yaml['browser'] != null) {
-      throwToolExit('Browser must be a Map. Found ${yaml['browser'].runtimeType}');
-    }
-    if (yaml['experimental-hot-reload'] is! bool && yaml['experimental-hot-reload'] != null) {
-      throwToolExit(
-        'experimental-hot-reload must be a bool. Found ${yaml['experimental-hot-reload'].runtimeType}',
-      );
     }
 
     final List<ProxyConfig> proxyRules = <ProxyConfig>[];
@@ -64,8 +54,6 @@ class DevConfig {
       host: yaml['host'] as String?,
       port: yaml['port'] as int?,
       https: yaml['https'] == null ? null : HttpsConfig.fromYaml(yaml['https'] as YamlMap),
-      browser: yaml['browser'] == null ? null : BrowserConfig.fromYaml(yaml['browser'] as YamlMap),
-      experimentalHotReload: yaml['experimental-hot-reload'] as bool?,
       proxy: proxyRules,
     );
   }
@@ -74,8 +62,6 @@ class DevConfig {
   final String? host;
   final int? port;
   final HttpsConfig? https;
-  final BrowserConfig? browser;
-  final bool? experimentalHotReload;
   final List<ProxyConfig> proxy;
 
   @override
@@ -86,8 +72,6 @@ class DevConfig {
   host: $host
   port: $port
   https: $https
-  browser: $browser
-  experimentalHotReload: $experimentalHotReload
   proxy: $proxy''';
   }
 }
@@ -224,47 +208,12 @@ class RegexProxyConfig extends ProxyConfig {
   }
 }
 
-@immutable
-class BrowserConfig {
-  /// Create a new [BrowserConfig] object.
-  const BrowserConfig({
-    this.debugPort,
-    this.flags
-    });
-
-  factory BrowserConfig.fromYaml(YamlMap yaml) {
-    if (yaml['path'] is! String && yaml['path'] != null) {
-      throwToolExit('Browser path must be a String. Found ${yaml['path'].runtimeType}');
-    }
-    if (yaml['args'] is! YamlList && yaml['args'] != null) {
-      throwToolExit('Browser args must be a List<String>. Found ${yaml['args'].runtimeType}');
-    }
-    return BrowserConfig(
-      debugPort: yaml['debugPort'] as int?,
-      flags: (yaml['flags'] as YamlList?)?.cast<String>() ?? <String>[],
-    );
-  }
-
-  final int? debugPort;
-  final List<String>? flags;
-
-  @override
-  String toString() {
-    return '''
-    BrowserConfig:
-    debugPort: $debugPort
-    flags: $flags''';
-  }
-}
-
 Future<DevConfig> loadDevConfig({
   String? hostname,
   String? port,
   String? tlsCertPath,
   String? tlsCertKeyPath,
   Map<String, String>? headers,
-  int? debugPort,
-  List<String>? browserFlags,
 }) async {
   const String devConfigFilePath = 'web/devconfig.yaml';
   final io.File devConfigFile = globals.fs.file(devConfigFilePath);
@@ -333,13 +282,6 @@ Future<DevConfig> loadDevConfig({
       ...fileConfig.headers,
       ...?headers,
     },
-    browser: (debugPort != null || browserFlags != null || fileConfig.browser != null)
-            ? BrowserConfig(
-              debugPort: debugPort ?? fileConfig.browser?.debugPort,
-              flags: <String>[...?browserFlags, ...?fileConfig.browser?.flags],
-            )
-            : null,
-    experimentalHotReload: fileConfig.experimentalHotReload,
     proxy: fileConfig.proxy,
   );
 }
