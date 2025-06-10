@@ -261,12 +261,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
   @protected
   Future<DebuggingOptions> createDebuggingOptions({DevConfig? devConfig}) async {
     final BuildInfo buildInfo = await getBuildInfo();
-    final int? webBrowserDebugPort =
-        featureFlags.isWebEnabled && argResults!.wasParsed('web-browser-debug-port')
-            ? int.parse(stringArg('web-browser-debug-port')!)
-            : null;
-    final List<String> webBrowserFlags =
-        featureFlags.isWebEnabled ? stringsArg(FlutterOptions.kWebBrowserFlag) : const <String>[];
 
     if (buildInfo.mode.isRelease) {
       return DebuggingOptions.disabled(
@@ -281,8 +275,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
             stringArg('web-server-debug-injected-client-protocol') == 'sse',
         webEnableExposeUrl: featureFlags.isWebEnabled && boolArg('web-allow-expose-url'),
         webRunHeadless: featureFlags.isWebEnabled && boolArg('web-run-headless'),
-        webBrowserDebugPort: webBrowserDebugPort,
-        webBrowserFlags: webBrowserFlags,
         webRenderer: webRenderer,
         webUseWasm: useWasm,
         enableImpeller: enableImpeller,
@@ -332,8 +324,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
             stringArg('web-server-debug-injected-client-protocol') == 'sse',
         webEnableExposeUrl: featureFlags.isWebEnabled && boolArg('web-allow-expose-url'),
         webRunHeadless: featureFlags.isWebEnabled && boolArg('web-run-headless'),
-        webBrowserDebugPort: webBrowserDebugPort,
-        webBrowserFlags: webBrowserFlags,
         webEnableExpressionEvaluation:
             featureFlags.isWebEnabled && boolArg('web-enable-expression-evaluation'),
         webLaunchUrl: featureFlags.isWebEnabled ? stringArg('web-launch-url') : null,
@@ -655,6 +645,8 @@ class RunCommand extends RunCommandBase {
         tlsCertPath: stringArg('web-tls-cert-path'),
         tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
         headers: extractWebHeaders(),
+        debugPort: int.parse(stringArg('web-browser-debug-port')!),
+        browserFlags: stringsArg(FlutterOptions.kWebBrowserFlag),
       );
     } else {
       _devConfig = null;

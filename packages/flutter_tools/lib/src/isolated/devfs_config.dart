@@ -227,7 +227,10 @@ class RegexProxyConfig extends ProxyConfig {
 @immutable
 class BrowserConfig {
   /// Create a new [BrowserConfig] object.
-  const BrowserConfig({required this.path, required this.args});
+  const BrowserConfig({
+    this.debugPort,
+    this.flags
+    });
 
   factory BrowserConfig.fromYaml(YamlMap yaml) {
     if (yaml['path'] is! String && yaml['path'] != null) {
@@ -237,20 +240,20 @@ class BrowserConfig {
       throwToolExit('Browser args must be a List<String>. Found ${yaml['args'].runtimeType}');
     }
     return BrowserConfig(
-      path: yaml['path'] as String?,
-      args: (yaml['args'] as YamlList?)?.cast<String>() ?? <String>[],
+      debugPort: yaml['debugPort'] as int?,
+      flags: (yaml['flags'] as YamlList?)?.cast<String>() ?? <String>[],
     );
   }
 
-  final String? path;
-  final List<String> args;
+  final int? debugPort;
+  final List<String>? flags;
 
   @override
   String toString() {
     return '''
     BrowserConfig:
-    path: $path
-    args: $args''';
+    debugPort: $debugPort
+    flags: $flags''';
   }
 }
 
@@ -260,6 +263,8 @@ Future<DevConfig> loadDevConfig({
   String? tlsCertPath,
   String? tlsCertKeyPath,
   Map<String, String>? headers,
+  int? debugPort,
+  List<String>? browserFlags,
 }) async {
   const String devConfigFilePath = 'web/devconfig.yaml';
   final io.File devConfigFile = globals.fs.file(devConfigFilePath);
@@ -328,7 +333,12 @@ Future<DevConfig> loadDevConfig({
       ...fileConfig.headers,
       ...?headers,
     },
-    browser: fileConfig.browser,
+    browser: (debugPort != null || browserFlags != null || fileConfig.browser != null)
+            ? BrowserConfig(
+              debugPort: debugPort ?? fileConfig.browser?.debugPort,
+              flags: <String>[...?browserFlags, ...?fileConfig.browser?.flags],
+            )
+            : null,
     experimentalHotReload: fileConfig.experimentalHotReload,
     proxy: fileConfig.proxy,
   );
