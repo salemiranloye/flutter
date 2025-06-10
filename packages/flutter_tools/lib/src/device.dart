@@ -1082,6 +1082,7 @@ class DebuggingOptions {
     required this.ipv6,
     required this.google3WorkspaceRoot,
     required this.printDtd,
+    // ignore: unused_element_parameter
     this.devConfig,
   });
 
@@ -1335,7 +1336,6 @@ class DebuggingOptions {
         ipv6: (json['ipv6'] as bool?) ?? false,
         google3WorkspaceRoot: json['google3WorkspaceRoot'] as String?,
         printDtd: (json['printDtd'] as bool?) ?? false,
-        devConfig: const DevConfig(),
       );
 }
 
