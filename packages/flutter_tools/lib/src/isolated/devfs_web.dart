@@ -66,7 +66,6 @@ class WebDevFS implements DevFS {
     required this.enableDds,
     required this.entrypoint,
     required this.expressionCompiler,
-    required this.extraHeaders,
     required this.chromiumLauncher,
     required this.nativeNullAssertions,
     required this.ddcModuleSystem,
@@ -95,7 +94,6 @@ class WebDevFS implements DevFS {
   final BuildInfo buildInfo;
   final bool enableDwds;
   final bool enableDds;
-  final Map<String, String> extraHeaders;
   final bool testMode;
   final bool ddcModuleSystem;
   final bool canaryFeatures;
@@ -196,7 +194,6 @@ class WebDevFS implements DevFS {
       enableDds,
       entrypoint,
       expressionCompiler,
-      extraHeaders,
       webRenderer: webRenderer,
       isWasm: isWasm,
       useLocalCanvasKit: useLocalCanvasKit,

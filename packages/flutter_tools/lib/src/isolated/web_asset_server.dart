@@ -185,8 +185,7 @@ class WebAssetServer implements AssetReader {
     bool enableDwds,
     bool enableDds,
     Uri entrypoint,
-    ExpressionCompiler? expressionCompiler,
-    Map<String, String> extraHeaders, {
+    ExpressionCompiler? expressionCompiler, {
     required DevConfig devConfig,
     required WebRendererMode webRenderer,
     required bool isWasm,
@@ -204,7 +203,7 @@ class WebAssetServer implements AssetReader {
     final int effectivePort = devConfig.port ?? 0;
     final String? effectiveCertPath = devConfig.https?.certPath;
     final String? effectiveCertKeyPath = devConfig.https?.certKeyPath;
-    final List<String> effectiveHeaders = devConfig.headers;
+    final Map<String, String> effectiveHeaders = devConfig.headers;
     final List<ProxyConfig> effectiveProxy = devConfig.proxy;
 
     HttpServer? httpServer;
@@ -285,9 +284,8 @@ class WebAssetServer implements AssetReader {
       shelf.Pipeline pipeline = const shelf.Pipeline();
       pipeline = pipeline.addMiddleware(
         manageHeadersMiddleware(
-          headersToInjectOnRequest: effectiveHeaders,
-          headersToSetOnResponse: extraHeaders,
-          headersToRemoveFromResponse: responseHeadersToRemove,
+          headersToInject: effectiveHeaders,
+          headersToRemove: responseHeadersToRemove,
         ),
       );
 
@@ -398,9 +396,8 @@ class WebAssetServer implements AssetReader {
     shelf.Pipeline pipeline = const shelf.Pipeline();
     pipeline = pipeline.addMiddleware(
       manageHeadersMiddleware(
-        headersToInjectOnRequest: effectiveHeaders,
-        headersToSetOnResponse: extraHeaders,
-        headersToRemoveFromResponse: responseHeadersToRemove,
+        headersToInject: effectiveHeaders,
+        headersToRemove: responseHeadersToRemove,
       ),
     );
     if (enableDwds) {

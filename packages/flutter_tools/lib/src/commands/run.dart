@@ -18,6 +18,7 @@ import '../device.dart';
 import '../features.dart';
 import '../globals.dart' as globals;
 import '../ios/devices.dart';
+import '../isolated/devfs_config.dart';
 import '../project.dart';
 import '../resident_runner.dart';
 import '../run_cold.dart';
@@ -26,7 +27,6 @@ import '../runner/flutter_command.dart';
 import '../runner/flutter_command_runner.dart';
 import '../tracing.dart';
 import '../web/compile.dart';
-import '../isolated/devfs_config.dart';
 import '../web/web_constants.dart';
 import '../web/web_runner.dart';
 import 'daemon.dart';
@@ -268,9 +268,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
     final List<String> webBrowserFlags =
         featureFlags.isWebEnabled ? stringsArg(FlutterOptions.kWebBrowserFlag) : const <String>[];
 
-    final Map<String, String> webHeaders =
-        featureFlags.isWebEnabled ? extractWebHeaders() : const <String, String>{};
-
     if (buildInfo.mode.isRelease) {
       return DebuggingOptions.disabled(
         buildInfo,
@@ -286,7 +283,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         webRunHeadless: featureFlags.isWebEnabled && boolArg('web-run-headless'),
         webBrowserDebugPort: webBrowserDebugPort,
         webBrowserFlags: webBrowserFlags,
-        webHeaders: webHeaders,
         webRenderer: webRenderer,
         webUseWasm: useWasm,
         enableImpeller: enableImpeller,
@@ -341,7 +337,6 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         webEnableExpressionEvaluation:
             featureFlags.isWebEnabled && boolArg('web-enable-expression-evaluation'),
         webLaunchUrl: featureFlags.isWebEnabled ? stringArg('web-launch-url') : null,
-        webHeaders: webHeaders,
         webRenderer: webRenderer,
         webUseWasm: useWasm,
         vmserviceOutFile: stringArg('vmservice-out-file'),
@@ -659,6 +654,7 @@ class RunCommand extends RunCommandBase {
         port: stringArg('web-port'),
         tlsCertPath: stringArg('web-tls-cert-path'),
         tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+        headers: extractWebHeaders(),
       );
     } else {
       _devConfig = null;

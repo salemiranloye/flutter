@@ -12,7 +12,7 @@ import '../globals.dart' as globals;
 @immutable
 class DevConfig {
   const DevConfig({
-    this.headers = const <String>[],
+    this.headers = const <String, String>{},
     this.host = 'localhost',
     this.port = 0,
     this.https,
@@ -28,8 +28,8 @@ class DevConfig {
     if (yaml['port'] is! int && yaml['port'] != null) {
       throwToolExit('Port must be an int. Found ${yaml['port'].runtimeType}');
     }
-    if (yaml['headers'] is! YamlList && yaml['headers'] != null) {
-      throwToolExit('Headers must be a List<String>. Found ${yaml['headers'].runtimeType}');
+    if (yaml['headers'] is! YamlMap && yaml['headers'] != null) {
+      throwToolExit('Headers must be a Map. Found ${yaml['headers'].runtimeType}');
     }
     if (yaml['https'] is! YamlMap && yaml['https'] != null) {
       throwToolExit('Https must be a Map. Found ${yaml['https'].runtimeType}');
@@ -52,8 +52,15 @@ class DevConfig {
       });
     }
 
+    final Map<String, String> headers = <String, String>{};
+    if (yaml['headers'] is YamlMap) {
+      (yaml['headers'] as YamlMap).forEach((dynamic key, dynamic value) {
+        headers[key.toString()] = value.toString();
+      });
+    }
+
     return DevConfig(
-      headers: (yaml['headers'] as YamlList?)?.cast<String>() ?? const <String>[],
+      headers: headers,
       host: yaml['host'] as String?,
       port: yaml['port'] as int?,
       https: yaml['https'] == null ? null : HttpsConfig.fromYaml(yaml['https'] as YamlMap),
@@ -63,7 +70,7 @@ class DevConfig {
     );
   }
 
-  final List<String> headers;
+  final Map<String, String> headers;
   final String? host;
   final int? port;
   final HttpsConfig? https;
@@ -252,6 +259,7 @@ Future<DevConfig> loadDevConfig({
   String? port,
   String? tlsCertPath,
   String? tlsCertKeyPath,
+  Map<String, String>? headers,
 }) async {
   const String devConfigFilePath = 'web/devconfig.yaml';
   final io.File devConfigFile = globals.fs.file(devConfigFilePath);
@@ -316,7 +324,10 @@ Future<DevConfig> loadDevConfig({
               certKeyPath: tlsCertKeyPath ?? fileConfig.https?.certKeyPath,
             )
             : null,
-    headers: fileConfig.headers,
+    headers: <String, String>{
+      ...fileConfig.headers,
+      ...?headers,
+    },
     browser: fileConfig.browser,
     experimentalHotReload: fileConfig.experimentalHotReload,
     proxy: fileConfig.proxy,
@@ -324,37 +335,20 @@ Future<DevConfig> loadDevConfig({
 }
 
 shelf.Middleware manageHeadersMiddleware({
-  List<String> headersToInjectOnRequest = const <String>[],
-  List<String> headersToRemoveFromRequest = const <String>[],
-  Map<String, String> headersToSetOnResponse = const <String, String>{},
-  List<String> headersToRemoveFromResponse = const <String>[],
+  Map<String, String> headersToInject = const <String, String>{},
+  List<String> headersToRemove = const <String>[],
 }) {
   return (shelf.Handler innerHandler) {
     return (shelf.Request request) async {
-      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers);
-      for (final String headerEntry in headersToInjectOnRequest) {
-        final List<String> parts = headerEntry.split('=');
-        if (parts.length == 2) {
-          newRequestHeaders[parts[0].trim().toLowerCase()] = parts[1].trim();
-        } else {
-          globals.printError('Error in request header to inject: "$headerEntry"');
-        }
-      }
-      for (final String headerNameToRemove in headersToRemoveFromRequest) {
+      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers)..addAll(headersToInject);
+
+      for (final String headerNameToRemove in headersToRemove) {
         newRequestHeaders.remove(headerNameToRemove.toLowerCase());
       }
       final shelf.Request modifiedRequest = request.change(headers: newRequestHeaders);
 
       final shelf.Response response = await innerHandler(modifiedRequest);
       final Map<String, String> newResponseHeaders = Map<String, String>.of(response.headers);
-
-      for (final String headerName in headersToRemoveFromResponse) {
-        newResponseHeaders.remove(headerName.toLowerCase());
-      }
-
-      headersToSetOnResponse.forEach((String key, String value) {
-        newResponseHeaders[key.toLowerCase()] = value;
-      });
       return response.change(headers: newResponseHeaders);
     };
   };

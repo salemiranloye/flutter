@@ -955,7 +955,6 @@ class DebuggingOptions {
     this.webBrowserDebugPort,
     this.webBrowserFlags = const <String>[],
     this.webEnableExpressionEvaluation = false,
-    this.webHeaders = const <String, String>{},
     this.webLaunchUrl,
     WebRendererMode? webRenderer,
     this.webUseWasm = false,
@@ -988,7 +987,6 @@ class DebuggingOptions {
     this.webBrowserDebugPort,
     this.webBrowserFlags = const <String>[],
     this.webLaunchUrl,
-    this.webHeaders = const <String, String>{},
     WebRendererMode? webRenderer,
     this.webUseWasm = false,
     this.traceAllowlist,
@@ -1064,7 +1062,6 @@ class DebuggingOptions {
     required this.webBrowserDebugPort,
     required this.webBrowserFlags,
     required this.webEnableExpressionEvaluation,
-    required this.webHeaders,
     required this.webLaunchUrl,
     required this.webRenderer,
     required this.webUseWasm,
@@ -1150,9 +1147,6 @@ class DebuggingOptions {
 
   /// Allow developers to customize the browser's launch URL
   final String? webLaunchUrl;
-
-  /// Allow developers to add custom headers to web server
-  final Map<String, String> webHeaders;
 
   /// Which web renderer to use for the debugging session
   final WebRendererMode webRenderer;
@@ -1255,7 +1249,6 @@ class DebuggingOptions {
     'webBrowserFlags': webBrowserFlags,
     'webEnableExpressionEvaluation': webEnableExpressionEvaluation,
     'webLaunchUrl': webLaunchUrl,
-    'webHeaders': webHeaders,
     'webRenderer': webRenderer.name,
     'webUseWasm': webUseWasm,
     'vmserviceOutFile': vmserviceOutFile,
@@ -1318,7 +1311,6 @@ class DebuggingOptions {
         webBrowserDebugPort: json['webBrowserDebugPort'] as int?,
         webBrowserFlags: (json['webBrowserFlags']! as List<dynamic>).cast<String>(),
         webEnableExpressionEvaluation: json['webEnableExpressionEvaluation']! as bool,
-        webHeaders: (json['webHeaders']! as Map<dynamic, dynamic>).cast<String, String>(),
         webLaunchUrl: json['webLaunchUrl'] as String?,
         webRenderer: WebRendererMode.values.byName(json['webRenderer']! as String),
         webUseWasm: json['webUseWasm']! as bool,
