@@ -12,7 +12,7 @@ import '../globals.dart' as globals;
 @immutable
 class DevConfig {
   const DevConfig({
-    this.headers = const <String>[],
+    this.headers = const <String, String>{},
     this.host = 'localhost',
     this.port = 0,
     this.https,
@@ -28,8 +28,8 @@ class DevConfig {
     if (yaml['port'] is! int && yaml['port'] != null) {
       throwToolExit('Port must be an int. Found ${yaml['port'].runtimeType}');
     }
-    if (yaml['headers'] is! YamlList && yaml['headers'] != null) {
-      throwToolExit('Headers must be a List<String>. Found ${yaml['headers'].runtimeType}');
+    if (yaml['headers'] is! YamlMap && yaml['headers'] != null) {
+      throwToolExit('Headers must be a Map. Found ${yaml['headers'].runtimeType}');
     }
     if (yaml['https'] is! YamlMap && yaml['https'] != null) {
       throwToolExit('Https must be a Map. Found ${yaml['https'].runtimeType}');
@@ -52,8 +52,15 @@ class DevConfig {
       });
     }
 
+    final Map<String, String> headers = <String, String>{};
+    if (yaml['headers'] is YamlMap) {
+      (yaml['headers'] as YamlMap).forEach((dynamic key, dynamic value) {
+        headers[key.toString()] = value.toString();
+      });
+    }
+
     return DevConfig(
-      headers: (yaml['headers'] as YamlList?)?.cast<String>() ?? const <String>[],
+      headers: headers,
       host: yaml['host'] as String?,
       port: yaml['port'] as int?,
       https: yaml['https'] == null ? null : HttpsConfig.fromYaml(yaml['https'] as YamlMap),
@@ -63,7 +70,7 @@ class DevConfig {
     );
   }
 
-  final List<String> headers;
+  final Map<String, String> headers;
   final String? host;
   final int? port;
   final HttpsConfig? https;
@@ -120,7 +127,7 @@ class HttpsConfig {
 
 abstract class ProxyConfig {
   ProxyConfig({required this.target, this.rewrite});
-  
+
   factory ProxyConfig.fromYaml(String key, YamlMap yaml) {
     String Function(String)? rewriteFn;
     if (yaml['rewrite'] is bool && yaml['rewrite'] == true) {
@@ -219,9 +226,11 @@ class RegexProxyConfig extends ProxyConfig {
 
 @immutable
 class BrowserConfig {
-  
   /// Create a new [BrowserConfig] object.
-  const BrowserConfig({required this.path, required this.args});
+  const BrowserConfig({
+    this.debugPort,
+    this.flags
+    });
 
   factory BrowserConfig.fromYaml(YamlMap yaml) {
     if (yaml['path'] is! String && yaml['path'] != null) {
@@ -231,126 +240,125 @@ class BrowserConfig {
       throwToolExit('Browser args must be a List<String>. Found ${yaml['args'].runtimeType}');
     }
     return BrowserConfig(
-      path: yaml['path'] as String?,
-      args: (yaml['args'] as YamlList?)?.cast<String>() ?? <String>[],
+      debugPort: yaml['debugPort'] as int?,
+      flags: (yaml['flags'] as YamlList?)?.cast<String>() ?? <String>[],
     );
   }
 
-  final String? path;
-  final List<String> args;
+  final int? debugPort;
+  final List<String>? flags;
 
   @override
   String toString() {
     return '''
     BrowserConfig:
-    path: $path
-    args: $args''';
+    debugPort: $debugPort
+    flags: $flags''';
   }
 }
 
-/// Loads the web server configuration from `devconfig.yaml`.
-///
-/// If `devconfig.yaml` is not found or cannot be parsed, it returns a [DevConfig]
-/// with default values.
-Future<DevConfig> loadDevConfig() async {
+Future<DevConfig> loadDevConfig({
+  String? hostname,
+  String? port,
+  String? tlsCertPath,
+  String? tlsCertKeyPath,
+  Map<String, String>? headers,
+  int? debugPort,
+  List<String>? browserFlags,
+}) async {
   const String devConfigFilePath = 'web/devconfig.yaml';
   final io.File devConfigFile = globals.fs.file(devConfigFilePath);
+  DevConfig fileConfig = const DevConfig();
 
   if (!devConfigFile.existsSync()) {
     globals.printStatus(
       'No $devConfigFilePath found. Running with default web server configuration.',
     );
-    return const DevConfig();
-  }
+  } else {
+    try {
+      final String devConfigContent = await devConfigFile.readAsString();
+      final YamlDocument yamlDoc = loadYamlDocument(devConfigContent);
+      final YamlNode contents = yamlDoc.contents;
+      if (contents is! YamlMap) {
+        throw YamlException(
+          'The root of $devConfigFilePath must be a YAML map (e.g., "server:"). '
+          'Found a ${contents.runtimeType} instead.',
+          contents.span,
+        );
+      }
 
-  try {
-    final String devConfigContent = await devConfigFile.readAsString();
-    final YamlDocument yamlDoc = loadYamlDocument(devConfigContent);
-    final YamlNode contents = yamlDoc.contents;
-    if (contents is! YamlMap) {
-      throw YamlException(
-        'The root of $devConfigFilePath must be a YAML map (e.g., "server:"). '
-        'Found a ${contents.runtimeType} instead.',
-        contents.span,
-      );
-    }
+      if (!contents.containsKey('server') || contents['server'] is! YamlMap) {
+        final SourceSpan span =
+            (contents.containsKey('server') && contents['server'] is YamlNode)
+                ? (contents['server'] as YamlNode).span
+                : contents.span;
+        throw YamlException(
+          'The "$devConfigFilePath" file is found, but the "server" key is '
+          'missing or malformed. It must be a YAML map.',
+          span,
+        );
+      }
 
-    if (!contents.containsKey('server') || contents['server'] is! YamlMap) {
-      // Find the span for the 'server' key if it exists but is malformed,
-      // otherwise use the root span.
-      final SourceSpan span =
-          (contents.containsKey('server') && contents['server'] is YamlNode)
-              ? (contents['server'] as YamlNode).span
-              : contents.span;
-      throw YamlException(
-        'The "$devConfigFilePath" file is found, but the "server" key is '
-        'missing or malformed. It must be a YAML map.',
-        span,
-      );
-    }
-
-    final YamlMap serverYaml = contents['server'] as YamlMap;
-    final DevConfig config = DevConfig.fromYaml(serverYaml);
-    globals.printStatus('\nParsed devconfig.yaml:');
-    globals.printStatus(config.toString());
-
-    if (config.proxy.isNotEmpty) {
+      final YamlMap serverYaml = contents['server'] as YamlMap;
+      fileConfig = DevConfig.fromYaml(serverYaml);
+      globals.printStatus('\nParsed devconfig.yaml:');
+      globals.printStatus(fileConfig.toString());
+    } on YamlException catch (e) {
+      String errorMessage = 'Error: Failed to parse $devConfigFilePath: ${e.message}';
+      if (e.span != null) {
+        errorMessage += '\n  At line ${e.span!.start.line + 1}, column ${e.span!.start.column + 1}';
+        errorMessage += '\n  Problematic text: "${e.span!.text}"';
+      }
+      globals.printError(errorMessage);
+      rethrow;
+    } on Exception catch (e) {
+      globals.printError('An unexpected error occurred while reading devconfig.yaml: $e');
       globals.printStatus(
-        'Initializing web server with custom configuration. Found ${config.proxy.length} proxy rules.',
+        'Reverting to default flutter_tools web server configuration due to unexpected error.',
       );
-    } else {
-      globals.printStatus('No proxy rules found.');
     }
-    return config;
-  } on YamlException catch (e) {
-    String errorMessage = 'Error: Failed to parse $devConfigFilePath: ${e.message}';
-    if (e.span != null) {
-      errorMessage += '\n  At line ${e.span!.start.line + 1}, column ${e.span!.start.column + 1}';
-      errorMessage += '\n  Problematic text: "${e.span!.text}"';
-    }
-    globals.printError(errorMessage);
-    rethrow;
-  } on Exception catch (e) {
-    globals.printError('An unexpected error occurred while reading devconfig.yaml: $e');
-    globals.printStatus(
-      'Reverting to default flutter_tools web server configuration due to unexpected error.',
-    );
-    return const DevConfig();
   }
+
+  return DevConfig(
+    host: hostname ?? fileConfig.host,
+    port: port != null ? int.tryParse(port) : fileConfig.port,
+    https:
+        (tlsCertPath != null || tlsCertKeyPath != null || fileConfig.https != null)
+            ? HttpsConfig(
+              certPath: tlsCertPath ?? fileConfig.https?.certPath,
+              certKeyPath: tlsCertKeyPath ?? fileConfig.https?.certKeyPath,
+            )
+            : null,
+    headers: <String, String>{
+      ...fileConfig.headers,
+      ...?headers,
+    },
+    browser: (debugPort != null || browserFlags != null || fileConfig.browser != null)
+            ? BrowserConfig(
+              debugPort: debugPort ?? fileConfig.browser?.debugPort,
+              flags: <String>[...?browserFlags, ...?fileConfig.browser?.flags],
+            )
+            : null,
+    experimentalHotReload: fileConfig.experimentalHotReload,
+    proxy: fileConfig.proxy,
+  );
 }
 
 shelf.Middleware manageHeadersMiddleware({
-  List<String> headersToInjectOnRequest = const <String>[],
-  List<String> headersToRemoveFromRequest = const <String>[],
-  Map<String, String> headersToSetOnResponse = const <String, String>{},
-  List<String> headersToRemoveFromResponse = const <String>[],
+  Map<String, String> headersToInject = const <String, String>{},
+  List<String> headersToRemove = const <String>[],
 }) {
   return (shelf.Handler innerHandler) {
     return (shelf.Request request) async {
-      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers);
-      for (final String headerEntry in headersToInjectOnRequest) {
-        final List<String> parts = headerEntry.split('=');
-        if (parts.length == 2) {
-          newRequestHeaders[parts[0].trim().toLowerCase()] = parts[1].trim();
-        } else {
-          globals.printError('Error in request header to inject: "$headerEntry"');
-        }
-      }
-      for (final String headerNameToRemove in headersToRemoveFromRequest) {
+      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers)..addAll(headersToInject);
+
+      for (final String headerNameToRemove in headersToRemove) {
         newRequestHeaders.remove(headerNameToRemove.toLowerCase());
       }
       final shelf.Request modifiedRequest = request.change(headers: newRequestHeaders);
 
       final shelf.Response response = await innerHandler(modifiedRequest);
       final Map<String, String> newResponseHeaders = Map<String, String>.of(response.headers);
-
-      for (final String headerName in headersToRemoveFromResponse) {
-        newResponseHeaders.remove(headerName.toLowerCase());
-      }
-
-      headersToSetOnResponse.forEach((String key, String value) {
-        newResponseHeaders[key.toLowerCase()] = value;
-      });
       return response.change(headers: newResponseHeaders);
     };
   };
