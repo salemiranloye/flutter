@@ -42,6 +42,7 @@ String htmlTemplate(String filename, String fallbackContent) {
   final File template = globals.fs.currentDirectory.childDirectory('web').childFile(filename);
   return template.existsSync() ? template.readAsStringSync() : fallbackContent;
 }
+
 Future<Directory> loadDwdsDirectory(FileSystem fileSystem, Logger logger) async {
   final PackageConfig packageConfig = await currentPackageConfig();
   return fileSystem.directory(packageConfig['dwds']!.packageUriRoot);
@@ -50,9 +51,19 @@ Future<Directory> loadDwdsDirectory(FileSystem fileSystem, Logger logger) async 
 shelf.Middleware proxyMiddleware(List<ProxyConfig> effectiveProxy) {
   return (shelf.Handler innerHandler) {
     return (shelf.Request request) async {
+      bool isWebSocketUpgrade(shelf.Request request) {
+        final String connectionHeader = request.headers['Connection']?.toLowerCase() ?? '';
+        return connectionHeader.contains('upgrade') &&
+            request.headers['Upgrade']?.toLowerCase() == 'websocket';
+      }
+
       final String requestPath = '/${request.url.path}'.replaceAll('//', '/');
       for (final ProxyConfig config in effectiveProxy) {
         if (config.matches(requestPath)) {
+          if (isWebSocketUpgrade(request)) {
+            globals.printWarning('WebSockets not supported by proxy: $requestPath');
+            return innerHandler(request);
+          }
           final Uri targetBaseUri = Uri.parse(config.target);
           final String rewrittenRequest = config.getRewrittenPath(requestPath);
           final Uri finalTargetUrl = targetBaseUri.resolve(rewrittenRequest);
@@ -66,7 +77,7 @@ shelf.Middleware proxyMiddleware(List<ProxyConfig> effectiveProxy) {
             );
             return await proxyHandler(targetBaseUri)(proxyBackendRequest);
           } on Exception catch (e) {
-            globals.printStatus('Proxy error for $finalTargetUrl: $e. Allowing fall-through.');
+            globals.printError('Proxy error for $finalTargetUrl: $e. Allowing fall-through.');
             return innerHandler(request);
           }
         }
