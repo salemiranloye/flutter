@@ -25,7 +25,6 @@ import 'package:flutter_tools/src/device.dart';
 import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:flutter_tools/src/ios/devices.dart';
-import 'package:flutter_tools/src/localizations/message_parser.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:flutter_tools/src/resident_runner.dart';
 import 'package:flutter_tools/src/runner/flutter_command.dart';
@@ -1656,24 +1655,19 @@ class FakeResidentRunner extends Fake implements ResidentRunner {
   RPCError? rpcError;
 
   @override
-  bool get stayResident => false;
-
-  @override
   Future<int> run({
     Completer<DebugConnectionInfo>? connectionInfoCompleter,
     Completer<void>? appStartedCompleter,
+    bool enableDevTools = false,
     String? route,
-    bool? enableDevTools,
   }) async {
-    appStartedCompleter?.complete();
-    // A small delay to ensure async operations can complete.
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    if (rpcError != null) {
+     await null;
+     if (rpcError != null) {
       throw rpcError!;
+      }
+      return 0;
     }
-    return 0;
   }
-}
 
 class DaemonCapturingRunCommand extends RunCommand {
   late Daemon daemon;

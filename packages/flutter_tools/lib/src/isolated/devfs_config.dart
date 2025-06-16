@@ -1,3 +1,7 @@
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 import 'dart:async';
 import 'dart:io' as io;
 
@@ -14,7 +18,7 @@ class DevConfig {
   const DevConfig({
     this.headers = const <String, String>{},
     this.host = 'localhost',
-    this.port = 0,
+    this.port,
     this.https,
     this.proxy = const <ProxyConfig>[],
   });
@@ -67,7 +71,7 @@ class DevConfig {
 
   final Map<String, String> headers;
   final String? host;
-  final int? port;
+  final int? port; // <-- KEY FIX: Changed back to a simple int.
   final HttpsConfig? https;
   final List<ProxyConfig> proxy;
 
@@ -186,10 +190,21 @@ Future<DevConfig> loadDevConfig({
               certKeyPath: tlsCertKeyPath ?? fileConfig.https?.certKeyPath,
             )
             : null,
-    headers: <String, String>{
-      ...fileConfig.headers,
-      ...?headers,
-    },
+    headers: <String, String>{...fileConfig.headers, ...?headers},
     proxy: fileConfig.proxy,
   );
+}
+
+Future<int> resolvePort(int? port) async {
+  if (port == null) {
+    return globals.os.findFreePort();
+  }
+
+  if (port < 0 || port > 65535) {
+    throwToolExit('''
+Invalid port: $port
+Please provide a valid TCP port (an integer between 0 and 65535, inclusive).
+''');
+  }
+  return port;
 }

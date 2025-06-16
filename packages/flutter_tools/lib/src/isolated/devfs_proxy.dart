@@ -174,23 +174,3 @@ shelf.Middleware proxyMiddleware(List<ProxyConfig> effectiveProxy) {
     };
   };
 }
-
-shelf.Middleware manageHeadersMiddleware({
-  Map<String, String> headersToInject = const <String, String>{},
-  List<String> headersToRemove = const <String>[],
-}) {
-  return (shelf.Handler innerHandler) {
-    return (shelf.Request request) async {
-      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers)..addAll(headersToInject);
-
-      for (final String headerNameToRemove in headersToRemove) {
-        newRequestHeaders.remove(headerNameToRemove.toLowerCase());
-      }
-      final shelf.Request modifiedRequest = request.change(headers: newRequestHeaders);
-
-      final shelf.Response response = await innerHandler(modifiedRequest);
-      final Map<String, String> newResponseHeaders = Map<String, String>.of(response.headers);
-      return response.change(headers: newResponseHeaders);
-    };
-  };
-}

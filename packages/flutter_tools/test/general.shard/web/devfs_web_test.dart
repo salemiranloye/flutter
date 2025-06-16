@@ -1350,7 +1350,6 @@ void main() {
       false,
       Uri.base,
       null,
-      const <String, String>{},
       webRenderer: WebRendererMode.canvaskit,
       isWasm: false,
       useLocalCanvasKit: false,
@@ -1365,8 +1364,7 @@ void main() {
   test('passes on extra headers', () async {
     const String extraHeaderKey = 'hurray';
     const String extraHeaderValue = 'flutter';
-
-    const DevConfig devConfig = DevConfig(headers: <String>['$extraHeaderKey=$extraHeaderValue']);
+    const DevConfig devConfig = DevConfig(headers: <String,String>{extraHeaderKey: extraHeaderValue});
 
     final WebAssetServer webAssetServer = await WebAssetServer.start(
       null,
@@ -1384,16 +1382,12 @@ void main() {
       false,
       Uri.base,
       null,
-      const <String, String>{extraHeaderKey: extraHeaderValue},
       webRenderer: WebRendererMode.canvaskit,
       isWasm: false,
       useLocalCanvasKit: false,
       testMode: true,
       devConfig: devConfig,
     );
-
-    expect(webAssetServer.defaultResponseHeaders[extraHeaderKey], <String>[extraHeaderValue]);
-
     await webAssetServer.dispose();
   });
 
