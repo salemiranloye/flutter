@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:meta/meta.dart';
-import 'package:shelf/shelf.dart' as shelf;
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
@@ -40,13 +39,12 @@ class DevConfig {
         if (value is YamlMap) {
           final String keyString = key.toString();
           if (!keyString.endsWith('/')) {
-            globals.logger.printError(
+            globals.logger.printWarning(
               "Proxy key '$keyString' does not end with '/'. Ignoring this proxy rule.",
             );
-
-            return;
+          } else {
+            proxyRules.add(ProxyConfig.fromYaml(key.toString(), value));
           }
-          proxyRules.add(ProxyConfig.fromYaml(keyString, value));
         }
       });
     }
@@ -112,47 +110,19 @@ class HttpsConfig {
   @override
   String toString() {
     return '''
-    HttpsConfig:x
-    certPath: $certPath
-    certKeyPath: $certKeyPath''';
+    HttpsConfig:
+        certPath: $certPath
+        certKeyPath: $certKeyPath''';
   }
 }
 
-@immutable
-class BrowserConfig {
-  /// Create a new [BrowserConfig] object.
-  const BrowserConfig({required this.path, required this.args});
-
-  factory BrowserConfig.fromYaml(YamlMap yaml) {
-    if (yaml['path'] is! String && yaml['path'] != null) {
-      throwToolExit('Browser path must be a String. Found ${yaml['path'].runtimeType}');
-    }
-    if (yaml['args'] is! YamlList && yaml['args'] != null) {
-      throwToolExit('Browser args must be a List<String>. Found ${yaml['args'].runtimeType}');
-    }
-    return BrowserConfig(
-      path: yaml['path'] as String?,
-      args: (yaml['args'] as YamlList?)?.cast<String>() ?? <String>[],
-    );
-  }
-
-  final String? path;
-  final List<String> args;
-
-  @override
-  String toString() {
-    return '''
-    BrowserConfig:
-    path: $path
-    args: $args''';
-  }
-}
-
-/// Loads the web server configuration from `devconfig.yaml`.
-///
-/// If `devconfig.yaml` is not found or cannot be parsed, it returns a [DevConfig]
-/// with default values.
-Future<DevConfig> loadDevConfig() async {
+Future<DevConfig> loadDevConfig({
+  String? hostname,
+  String? port,
+  String? tlsCertPath,
+  String? tlsCertKeyPath,
+  Map<String, String>? headers,
+}) async {
   const String devConfigFilePath = 'web/devconfig.yaml';
   final io.File devConfigFile = globals.fs.file(devConfigFilePath);
   DevConfig fileConfig = const DevConfig();
@@ -222,24 +192,4 @@ Future<DevConfig> loadDevConfig() async {
     },
     proxy: fileConfig.proxy,
   );
-}
-
-shelf.Middleware manageHeadersMiddleware({
-  Map<String, String> headersToInject = const <String, String>{},
-  List<String> headersToRemove = const <String>[],
-}) {
-  return (shelf.Handler innerHandler) {
-    return (shelf.Request request) async {
-      final Map<String, String> newRequestHeaders = Map<String, String>.of(request.headers)..addAll(headersToInject);
-
-      for (final String headerNameToRemove in headersToRemove) {
-        newRequestHeaders.remove(headerNameToRemove.toLowerCase());
-      }
-      final shelf.Request modifiedRequest = request.change(headers: newRequestHeaders);
-
-      final shelf.Response response = await innerHandler(modifiedRequest);
-      final Map<String, String> newResponseHeaders = Map<String, String>.of(response.headers);
-      return response.change(headers: newResponseHeaders);
-    };
-  };
 }
