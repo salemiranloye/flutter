@@ -282,10 +282,17 @@ void main() {
       await service.start(
         BuildInfo.profile,
         device,
-        DebuggingOptions.enabled(BuildInfo.profile, webDevServerConfig: webDevServerConfig, ipv6: true),
+        DebuggingOptions.enabled(
+          BuildInfo.profile,
+          webDevServerConfig: webDevServerConfig,
+          ipv6: true,
+        ),
       );
       await service.stop();
-      expect(FakeResidentRunner.instance.debuggingOptions.webDevServerConfig?.headers, equals(webHeaders));
+      expect(
+        FakeResidentRunner.instance.debuggingOptions.webDevServerConfig?.headers,
+        equals(webHeaders),
+      );
     },
     overrides: <Type, Generator>{WebRunnerFactory: () => FakeWebRunnerFactory()},
   );

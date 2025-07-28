@@ -697,7 +697,9 @@ class RunCommand extends RunCommandBase {
     required FlutterProject flutterProject,
   }) async {
     final WebDevServerConfig? webDevServerConfig = await _webDevServerConfig;
-    final DebuggingOptions debuggingOptions = await createDebuggingOptions(webDevServerConfig: webDevServerConfig);
+    final DebuggingOptions debuggingOptions = await createDebuggingOptions(
+      webDevServerConfig: webDevServerConfig,
+    );
 
     if (hotMode && webDevServerConfig == null) {
       return HotRunner(
@@ -764,7 +766,9 @@ class RunCommand extends RunCommandBase {
       final Daemon daemon = createMachineDaemon();
       late AppInstance app;
 
-      final DebuggingOptions debuggingOptions = await createDebuggingOptions(webDevServerConfig: webDevServerConfig);
+      final DebuggingOptions debuggingOptions = await createDebuggingOptions(
+        webDevServerConfig: webDevServerConfig,
+      );
       try {
         app = await daemon.appDomain.startApp(
           devices!.first,
