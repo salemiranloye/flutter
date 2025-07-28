@@ -33,6 +33,7 @@ import '../web/devfs_proxy.dart';
 import '../web/memory_fs.dart';
 import '../web/module_metadata.dart';
 import '../web_template.dart';
+import 'proxy_middleware.dart';
 import 'release_asset_server.dart';
 import 'web_server_utlities.dart';
 
@@ -123,7 +124,7 @@ class WebAssetServer implements AssetReader {
     }
     if (writeRestartScripts) {
       final srcIdsList = <Map<String, String>>[
-        for (final String src in modules) <String, String>{'src': src, 'id': src},
+        for (final String src in modules) <String, String>{'src': '$baseUri/$src', 'id': src},
       ];
       writeFile('restart_scripts.json', json.encode(srcIdsList));
     }
@@ -159,7 +160,7 @@ class WebAssetServer implements AssetReader {
             as Map<String, dynamic>,
       );
       final List<String> libraries = metadata.libraries.keys.toList();
-      final moduleUri = baseUri != null ? '$baseUri/$module' : module;
+      final moduleUri = '$baseUri/$module';
       moduleToLibrary.add(<String, Object>{
         'src': moduleUri,
         'module': metadata.name,
@@ -174,8 +175,8 @@ class WebAssetServer implements AssetReader {
     return _webMemoryFS.write(codeFile, manifestFile, sourcemapFile, metadataFile);
   }
 
-  Uri? get baseUri => _baseUri;
-  Uri? _baseUri;
+  Uri get baseUri => _baseUri;
+  late Uri _baseUri;
 
   /// Start the web asset server on a hostname and port.
   ///
@@ -195,7 +196,7 @@ class WebAssetServer implements AssetReader {
     bool enableDds,
     Uri entrypoint,
     ExpressionCompiler? expressionCompiler, {
-    required WebDevServerConfig devConfig,
+    required WebDevServerConfig webDevServerConfig,
     required WebRendererMode webRenderer,
     required bool isWasm,
     required bool useLocalCanvasKit,
@@ -210,12 +211,12 @@ class WebAssetServer implements AssetReader {
     required Platform platform,
     bool shouldEnableMiddleware = true,
   }) async {
-    final String effectiveHost = devConfig.host ?? 'localhost';
-    final int effectivePort = devConfig.port ?? 0;
-    final String? effectiveCertPath = devConfig.https?.certPath;
-    final String? effectiveCertKeyPath = devConfig.https?.certKeyPath;
-    final Map<String, String> effectiveHeaders = devConfig.headers;
-    final List<ProxyRule> effectiveProxy = devConfig.proxy;
+    final String effectiveHost = webDevServerConfig.host ?? 'localhost';
+    final int effectivePort = webDevServerConfig.port ?? 0;
+    final String? effectiveCertPath = webDevServerConfig.https?.certPath;
+    final String? effectiveCertKeyPath = webDevServerConfig.https?.certKeyPath;
+    final Map<String, String> effectiveHeaders = webDevServerConfig.headers;
+    final List<ProxyRule> effectiveProxy = webDevServerConfig.proxy;
 
     // TODO(srujzs): Remove this assertion when the library bundle format is
     // supported without canary mode.
@@ -352,8 +353,8 @@ class WebAssetServer implements AssetReader {
                   ),
                 ),
                 packageConfigPath: buildInfo.packageConfigPath,
-                hotReloadSourcesUri: server._baseUri!.replace(
-                  pathSegments: List<String>.from(server._baseUri!.pathSegments)
+                hotReloadSourcesUri: server._baseUri.replace(
+                  pathSegments: List<String>.from(server._baseUri.pathSegments)
                     ..add(_reloadScriptsFileName),
                 ),
               ).strategy

@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter_tools/src/globals.dart' as globals;
+import 'package:flutter_tools/src/isolated/proxy_middleware.dart';
 import 'package:flutter_tools/src/web/devfs_proxy.dart';
 import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
@@ -20,36 +21,36 @@ void main() {
 
   group('ProxyRule.fromYaml', () {
     test(
-      'should create PrefixProxyRule with prefix and no replacement',
+      'should create SourceProxyRule with source and no replacement',
       () => testbed.run(() {
         final yaml =
             loadYaml('''
           target: http://localhost:8080
-          prefix: /api
+          source: /api
         ''')
                 as YamlMap;
         final ProxyRule? rule = ProxyRule.fromYaml(yaml);
 
-        expect(rule, isA<PrefixProxyRule>());
-        expect((rule! as PrefixProxyRule).prefix, '/api');
+        expect(rule, isA<SourceProxyRule>());
+        expect((rule! as SourceProxyRule).source, '/api');
         expect(rule.target, 'http://localhost:8080');
       }),
     );
 
     test(
-      'should create PrefixProxyRule with prefix and replacement',
+      'should create SourceProxyRule with source and replacement',
       () => testbed.run(() {
         final yaml =
             loadYaml('''
           target: http://localhost:8080
-          prefix: /api
+          source: /api
           replace: /new_api
         ''')
                 as YamlMap;
         final ProxyRule? rule = ProxyRule.fromYaml(yaml);
 
-        expect(rule, isA<PrefixProxyRule>());
-        expect((rule! as PrefixProxyRule).prefix, '/api');
+        expect(rule, isA<SourceProxyRule>());
+        expect((rule! as SourceProxyRule).source, '/api');
         expect(rule.target, 'http://localhost:8080');
         expect(rule.replace('/api/users'), '/new_api/users');
         expect(rule.replace('/api/'), '/new_api/');
@@ -131,7 +132,7 @@ void main() {
       () => testbed.run(() {
         final yaml =
             loadYaml('''
-          prefix: /api
+          source: /api
         ''')
                 as YamlMap;
         final ProxyRule? rule = ProxyRule.fromYaml(yaml, logger: globals.logger);
@@ -141,7 +142,7 @@ void main() {
     );
 
     test(
-      'should return null if neither prefix nor regex is provided',
+      'should return null if neither source nor regex is provided',
       () => testbed.run(() {
         final yaml =
             loadYaml('''
@@ -207,6 +208,10 @@ void main() {
       expect(ruleExactMatch.matches('/exact_match_only/suffix'), isFalse);
     });
 
+    test('replace should return original path if no replacement string', () {
+      expect(ruleNoReplacement.replace('/users/123/data'), '/users/123/data');
+    });
+
     test('replace should apply replacement with capturing groups correctly', () {
       expect(
         ruleWithCapturingGroupReplacement.replace('/api/v1/users/789/profile/summary'),
@@ -267,27 +272,27 @@ void main() {
     });
   });
 
-  group('PrefixProxyRule', () {
-    final ruleNoReplacement = PrefixProxyRule(prefix: '/assets/', target: 'http://cdn.example.com');
+  group('SourceProxyRule', () {
+    final ruleNoReplacement = SourceProxyRule(source: '/assets/', target: 'http://cdn.example.com');
 
-    final ruleWithReplacement = PrefixProxyRule(
-      prefix: '/old-assets/',
+    final ruleWithReplacement = SourceProxyRule(
+      source: '/old-assets/',
       target: 'http://cdn.example.com',
       replacement: '/new-assets/',
     );
 
-    final ruleEmptyReplacement = PrefixProxyRule(
-      prefix: '/remove-me/',
+    final ruleEmptyReplacement = SourceProxyRule(
+      source: '/remove-me/',
       target: 'http://cdn.example.com',
       replacement: '',
     );
-    final ruleSlashReplacement = PrefixProxyRule(
-      prefix: '/remove-me-too',
+    final ruleSlashReplacement = SourceProxyRule(
+      source: '/remove-me-too',
       target: 'http://cdn.example.com',
       replacement: '/',
     );
 
-    test('matches should return true for matching prefix', () {
+    test('matches should return true for matching source', () {
       expect(ruleNoReplacement.matches('/assets/image.png'), isTrue);
       expect(ruleWithReplacement.matches('/old-assets/script.js'), isTrue);
       expect(ruleEmptyReplacement.matches('/remove-me/now'), isTrue);
@@ -295,14 +300,18 @@ void main() {
       expect(ruleSlashReplacement.matches('/remove-me-too/please'), isTrue);
     });
 
-    test('matches should return false for non-matching prefix', () {
+    test('matches should return false for non-matching source', () {
       expect(ruleNoReplacement.matches('/data/assets/image.png'), isFalse);
       expect(ruleWithReplacement.matches('/old/assets/script.js'), isFalse);
       expect(ruleWithReplacement.matches('/old-assets-prefix/script.js'), isFalse);
       expect(ruleSlashReplacement.matches('remove-me-too/please'), isFalse);
     });
 
-    test('replace should apply replacement for matching prefix', () {
+    test('replace should return original path if no replacement string', () {
+      expect(ruleNoReplacement.replace('/assets/document.pdf'), '/assets/document.pdf');
+    });
+
+    test('replace should apply replacement for matching source', () {
       expect(ruleWithReplacement.replace('/old-assets/style.css'), '/new-assets/style.css');
       expect(ruleWithReplacement.replace('/old-assets/'), '/new-assets/');
     });
@@ -324,17 +333,17 @@ void main() {
       expect(ruleSlashReplacement.replace('/remove-me-too/remove-me-too/'), '//remove-me-too/');
     });
 
-    test('replace should return original path for non-matching prefix', () {
+    test('replace should return original path for non-matching source', () {
       expect(ruleWithReplacement.replace('/other-path/file.txt'), '/other-path/file.txt');
     });
     test('toString provides useful debug information', () {
       expect(
         ruleNoReplacement.toString(),
-        '{prefix: /assets/, target: http://cdn.example.com, replacement: null}',
+        '{source: /assets/, target: http://cdn.example.com, replacement: null}',
       );
       expect(
         ruleWithReplacement.toString(),
-        '{prefix: /old-assets/, target: http://cdn.example.com, replacement: /new-assets/}',
+        '{source: /old-assets/, target: http://cdn.example.com, replacement: /new-assets/}',
       );
     });
   });

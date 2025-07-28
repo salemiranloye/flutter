@@ -74,7 +74,7 @@ class WebDevFS implements DevFS {
     required this.nativeNullAssertions,
     required this.ddcModuleSystem,
     required this.canaryFeatures,
-    required this.devConfig,
+    required this.webDevServerConfig,
     required this.webRenderer,
     required this.isWasm,
     required this.useLocalCanvasKit,
@@ -110,7 +110,7 @@ class WebDevFS implements DevFS {
   final WebRendererMode webRenderer;
   final bool isWasm;
   final bool useLocalCanvasKit;
-  final WebDevServerConfig devConfig;
+  final WebDevServerConfig webDevServerConfig;
   final bool useDwdsWebSocketConnection;
   final FileSystem fileSystem;
   final Logger logger;
@@ -194,7 +194,7 @@ class WebDevFS implements DevFS {
   Set<String> get assetPathsToEvict => const <String>{};
 
   @override
-  Uri? get baseUri => webAssetServer.baseUri;
+  Uri get baseUri => webAssetServer.baseUri;
 
   @override
   Future<Uri> create() async {
@@ -215,14 +215,14 @@ class WebDevFS implements DevFS {
       testMode: testMode,
       ddcModuleSystem: ddcModuleSystem,
       canaryFeatures: canaryFeatures,
-      devConfig: devConfig,
+      webDevServerConfig: webDevServerConfig,
       useDwdsWebSocketConnection: useDwdsWebSocketConnection,
       fileSystem: fileSystem,
       logger: logger,
       platform: platform,
       shouldEnableMiddleware: shouldEnableMiddleware,
     );
-    return baseUri!;
+    return baseUri;
   }
 
   @override
