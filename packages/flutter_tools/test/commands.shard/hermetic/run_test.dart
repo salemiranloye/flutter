@@ -971,8 +971,8 @@ void main() {
           ]);
 
           expect(fakeWebRunnerFactory.lastOptions, isNotNull);
-          expect(fakeWebRunnerFactory.lastOptions!.devConfig, isNotNull);
-          expect(fakeWebRunnerFactory.lastOptions!.devConfig!.headers, <String, String>{
+          expect(fakeWebRunnerFactory.lastOptions!.webDevServerConfig, isNotNull);
+          expect(fakeWebRunnerFactory.lastOptions!.webDevServerConfig!.headers, <String, String>{
             'foo': 'bar',
           });
         },
@@ -1097,8 +1097,8 @@ void main() {
           ]);
 
           expect(fakeWebRunnerFactory.lastOptions, isNotNull);
-          expect(fakeWebRunnerFactory.lastOptions!.devConfig, isNotNull);
-          expect(fakeWebRunnerFactory.lastOptions!.devConfig!.headers, <String, String>{
+          expect(fakeWebRunnerFactory.lastOptions!.webDevServerConfig, isNotNull);
+          expect(fakeWebRunnerFactory.lastOptions!.webDevServerConfig!.headers, <String, String>{
             'hurray': 'flutter,flutter=hurray',
           });
         },

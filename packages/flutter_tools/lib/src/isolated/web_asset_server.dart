@@ -196,7 +196,7 @@ class WebAssetServer implements AssetReader {
     bool enableDds,
     Uri entrypoint,
     ExpressionCompiler? expressionCompiler, {
-    required WebDevServerConfig devConfig,
+    required WebDevServerConfig webDevServerConfig,
     required WebRendererMode webRenderer,
     required bool isWasm,
     required bool useLocalCanvasKit,
@@ -211,12 +211,12 @@ class WebAssetServer implements AssetReader {
     required Platform platform,
     bool shouldEnableMiddleware = true,
   }) async {
-    final String effectiveHost = devConfig.host ?? 'localhost';
-    final int effectivePort = devConfig.port ?? 0;
-    final String? effectiveCertPath = devConfig.https?.certPath;
-    final String? effectiveCertKeyPath = devConfig.https?.certKeyPath;
-    final Map<String, String> effectiveHeaders = devConfig.headers;
-    final List<ProxyRule> effectiveProxy = devConfig.proxy;
+    final String effectiveHost = webDevServerConfig.host ?? 'localhost';
+    final int effectivePort = webDevServerConfig.port ?? 0;
+    final String? effectiveCertPath = webDevServerConfig.https?.certPath;
+    final String? effectiveCertKeyPath = webDevServerConfig.https?.certKeyPath;
+    final Map<String, String> effectiveHeaders = webDevServerConfig.headers;
+    final List<ProxyRule> effectiveProxy = webDevServerConfig.proxy;
 
     // TODO(srujzs): Remove this assertion when the library bundle format is
     // supported without canary mode.

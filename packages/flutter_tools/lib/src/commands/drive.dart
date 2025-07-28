@@ -305,7 +305,7 @@ class DriveCommand extends RunCommandBase {
       _logger.printError('Screenshot not supported for ${device.displayName}.');
     }
 
-    final WebDevServerConfig? devConfig = (device is WebServerDevice || device is ChromiumDevice)
+    final WebDevServerConfig? webDevServerConfig = (device is WebServerDevice || device is ChromiumDevice)
         ? await loadDevConfig(
             hostname: stringArg('web-hostname'),
             port: stringArg('web-port'),
@@ -331,10 +331,10 @@ class DriveCommand extends RunCommandBase {
       throwOnError: false,
     );
     final DriverService driverService = _flutterDriverFactory!.createDriverService(
-      devConfig != null,
+      webDevServerConfig != null,
     );
     final BuildInfo buildInfo = await getBuildInfo();
-    final DebuggingOptions debuggingOptions = await createDebuggingOptions(devConfig: devConfig);
+    final DebuggingOptions debuggingOptions = await createDebuggingOptions(webDevServerConfig: webDevServerConfig);
     final File? applicationBinary = applicationBinaryPath == null
         ? null
         : _fileSystem.file(applicationBinaryPath);
@@ -352,7 +352,7 @@ class DriveCommand extends RunCommandBase {
           mainPath: targetFile,
           platformArgs: <String, Object>{
             if (traceStartup) 'trace-startup': traceStartup,
-            if (devConfig != null) '--no-launch-chrome': true,
+            if (webDevServerConfig != null) '--no-launch-chrome': true,
           },
         );
       } else {
