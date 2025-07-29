@@ -1348,8 +1348,9 @@ class DebuggingOptions {
         google3WorkspaceRoot: json['google3WorkspaceRoot'] as String?,
         printDtd: (json['printDtd'] as bool?) ?? false,
         webDevServerConfig: WebDevServerConfig(
-          port: json['port']! as int,
-          host: json['hostname']! as String,
+          port: json['port'] is int ? json['port']! as int : 8080,
+          host: json['hostname'] is String ? json['hostname']! as String : 'localhost',
+
           https: (json['tlsCertPath'] != null || json['tlsCertKeyPath'] != null)
               ? HttpsConfig(
                   certPath: json['tlsCertPath'] as String?,
