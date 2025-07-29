@@ -307,13 +307,15 @@ class DriveCommand extends RunCommandBase {
 
     final WebDevServerConfig? webDevServerConfig =
         (device is WebServerDevice || device is ChromiumDevice)
-        ? await loadDevConfig(
+        ? await loadWebDevServerConfig(
             hostname: stringArg('web-hostname'),
             port: stringArg('web-port'),
             tlsCertPath: stringArg('web-tls-cert-path'),
             tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
           )
         : null;
+    final web = webDevServerConfig != null;
+
     _flutterDriverFactory ??= FlutterDriverFactory(
       applicationPackageFactory: ApplicationPackageFactory.instance!,
       logger: _logger,
@@ -331,9 +333,7 @@ class DriveCommand extends RunCommandBase {
       logger: _logger,
       throwOnError: false,
     );
-    final DriverService driverService = _flutterDriverFactory!.createDriverService(
-      webDevServerConfig != null,
-    );
+    final DriverService driverService = _flutterDriverFactory!.createDriverService(web);
     final BuildInfo buildInfo = await getBuildInfo();
     final DebuggingOptions debuggingOptions = await createDebuggingOptions(
       webDevServerConfig: webDevServerConfig,
@@ -355,7 +355,7 @@ class DriveCommand extends RunCommandBase {
           mainPath: targetFile,
           platformArgs: <String, Object>{
             if (traceStartup) 'trace-startup': traceStartup,
-            if (webDevServerConfig != null) '--no-launch-chrome': true,
+            if (web) '--no-launch-chrome': true,
           },
         );
       } else {

@@ -489,7 +489,7 @@ class RunCommand extends RunCommandBase {
         devices != null &&
         devices!.length == 1 &&
         await devices!.single.targetPlatform == TargetPlatform.web_javascript) {
-      return loadDevConfig(
+      return loadWebDevServerConfig(
         hostname: stringArg('web-hostname'),
         port: stringArg('web-port'),
         tlsCertPath: stringArg('web-tls-cert-path'),
@@ -697,6 +697,7 @@ class RunCommand extends RunCommandBase {
     required FlutterProject flutterProject,
   }) async {
     final WebDevServerConfig? webDevServerConfig = await _webDevServerConfig;
+    final web = webDevServerConfig != null;
     final DebuggingOptions debuggingOptions = await createDebuggingOptions(
       webDevServerConfig: webDevServerConfig,
     );
@@ -716,7 +717,7 @@ class RunCommand extends RunCommandBase {
         analytics: globals.analytics,
         nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
       );
-    } else if (webDevServerConfig != null) {
+    } else if (web) {
       return webRunnerFactory!.createWebRunner(
         flutterDevices.single,
         target: targetFile,
