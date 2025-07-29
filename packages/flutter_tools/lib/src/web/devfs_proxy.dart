@@ -38,7 +38,11 @@ abstract class ProxyRule {
           "Invalid regex pattern in replace 'regex': '$regex'. Treating $regex as string. Error: $e",
         );
       }
-      return RegexProxyRule(pattern: regexPattern, target: target, replacement: replacement?.trim());
+      return RegexProxyRule(
+        pattern: regexPattern,
+        target: target,
+        replacement: replacement?.trim(),
+      );
     } else {
       effectiveLogger.printError("'prefix' or 'regex' field must be provided");
       return null;
@@ -58,6 +62,9 @@ class RegexProxyRule extends ProxyRule {
 
   @override
   String replace(String path) {
+    if (replacement == null) {
+      return path;
+    }
     return path.replaceAllMapped(pattern, (Match match) {
       String result = replacement!;
 
