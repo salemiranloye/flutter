@@ -482,7 +482,7 @@ class RunCommand extends RunCommandBase {
   String get category => FlutterCommandCategory.project;
 
   List<Device>? devices;
-  late final Future<WebDevServerConfig?> _webDevServerConfig = (() async {
+  Future<WebDevServerConfig?> getWebDevServerConfig() async {
     // Only support "web mode" with a single web device due to resident runner
     // refactoring required otherwise.
     if (featureFlags.isWebEnabled &&
@@ -499,7 +499,7 @@ class RunCommand extends RunCommandBase {
     } else {
       return null;
     }
-  })();
+  }
 
   String? get userIdentifier => stringArg(FlutterOptions.kDeviceUser);
 
@@ -650,7 +650,7 @@ class RunCommand extends RunCommandBase {
     if (devices == null) {
       throwToolExit(null);
     }
-    final WebDevServerConfig? webDevServerConfig = await _webDevServerConfig;
+    final WebDevServerConfig? webDevServerConfig = await getWebDevServerConfig();
     if (globals.deviceManager!.hasSpecifiedAllDevices && runningWithPrebuiltApplication) {
       throwToolExit(
         'Using "-d all" with "--${FlutterOptions.kUseApplicationBinary}" is not supported',
@@ -696,7 +696,7 @@ class RunCommand extends RunCommandBase {
     required String? applicationBinaryPath,
     required FlutterProject flutterProject,
   }) async {
-    final WebDevServerConfig? webDevServerConfig = await _webDevServerConfig;
+    final WebDevServerConfig? webDevServerConfig = await getWebDevServerConfig();
     final web = webDevServerConfig != null;
     final DebuggingOptions debuggingOptions = await createDebuggingOptions(
       webDevServerConfig: webDevServerConfig,
@@ -758,7 +758,7 @@ class RunCommand extends RunCommandBase {
     // debug mode.
     final bool hotMode = shouldUseHotMode(buildInfo);
     final String? applicationBinaryPath = stringArg(FlutterOptions.kUseApplicationBinary);
-    final WebDevServerConfig? webDevServerConfig = await _webDevServerConfig;
+    final WebDevServerConfig? webDevServerConfig = await getWebDevServerConfig();
 
     if (outputMachineFormat) {
       if (devices!.length > 1) {
