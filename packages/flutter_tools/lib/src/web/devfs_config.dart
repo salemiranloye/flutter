@@ -52,10 +52,10 @@ class WebDevServerConfig {
       }
     }
     if (yaml['host'] is! String && yaml['host'] != null) {
-      throwToolExit('[WebDevServer] Host must be a String. Found ${yaml['host'].runtimeType}');
+      throwToolExit('[WebDevServer] host must be a String. Found ${yaml['host'].runtimeType}');
     }
     if (yaml['port'] is! int && yaml['port'] != null) {
-      throwToolExit('[WebDevServer] Port must be an int. Found ${yaml['port'].runtimeType}');
+      throwToolExit('[WebDevServer] port must be an int. Found ${yaml['port'].runtimeType}');
     }
     if (yaml['https'] is! YamlMap && yaml['https'] != null) {
       throwToolExit('[WebDevServer] Https must be a Map. Found ${yaml['https'].runtimeType}');
