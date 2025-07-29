@@ -489,12 +489,12 @@ class RunCommand extends RunCommandBase {
         devices != null &&
         devices!.length == 1 &&
         await devices!.single.targetPlatform == TargetPlatform.web_javascript) {
-      return loadWebDevServerConfig(
-        hostname: stringArg('web-hostname'),
-        port: stringArg('web-port'),
-        tlsCertPath: stringArg('web-tls-cert-path'),
-        tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
-        headers: extractWebHeaders(),
+      return WebDevServerConfig.loadFromFile(
+        overrideHostname: stringArg('web-hostname'),
+        overridePort: stringArg('web-port'),
+        overrideTlsCertPath: stringArg('web-tls-cert-path'),
+        overrideTlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+        extraHeaders: extractWebHeaders(),
       );
     } else {
       return null;

@@ -307,11 +307,11 @@ class DriveCommand extends RunCommandBase {
 
     final WebDevServerConfig? webDevServerConfig =
         (device is WebServerDevice || device is ChromiumDevice)
-        ? await loadWebDevServerConfig(
-            hostname: stringArg('web-hostname'),
-            port: stringArg('web-port'),
-            tlsCertPath: stringArg('web-tls-cert-path'),
-            tlsCertKeyPath: stringArg('web-tls-cert-key-path'),
+        ? await WebDevServerConfig.loadFromFile(
+            overrideHostname: stringArg('web-hostname'),
+            overridePort: stringArg('web-port'),
+            overrideTlsCertPath: stringArg('web-tls-cert-path'),
+            overrideTlsCertKeyPath: stringArg('web-tls-cert-key-path'),
           )
         : null;
     final web = webDevServerConfig != null;
