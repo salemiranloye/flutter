@@ -961,13 +961,9 @@ void main() {
         'can accept simple, valid values',
         () async {
           final command = RunCommand();
-          await createTestCommandRunner(command).run(<String>[
-            'run',
-            '--no-pub',
-            '--no-hot',
-            '--web-header',
-            'foo=bar',
-          ]);
+          await createTestCommandRunner(
+            command,
+          ).run(<String>['run', '--no-pub', '--no-hot', '--web-header', 'foo=bar']);
 
           expect(fakeWebRunnerFactory.lastOptions, isNotNull);
           expect(fakeWebRunnerFactory.lastOptions!.webDevServerConfig, isNotNull);
@@ -1041,9 +1037,7 @@ void main() {
           testDeviceManager.devices = <Device>[FakeDevice(platformType: PlatformType.android)];
           final command = RunCommand();
           await expectLater(
-            () => createTestCommandRunner(
-              command,
-            ).run(<String>['run', '--no-pub', '--wasm']),
+            () => createTestCommandRunner(command).run(<String>['run', '--no-pub', '--wasm']),
             throwsToolExit(message: '--wasm is only supported on the web platform'),
           );
         },
@@ -1062,11 +1056,9 @@ void main() {
         () async {
           final command = RunCommand();
           await expectLater(
-            () => createTestCommandRunner(command).run(<String>[
-              'run',
-              '--no-pub',
-              ...WebRendererMode.skwasm.toCliDartDefines,
-            ]),
+            () => createTestCommandRunner(
+              command,
+            ).run(<String>['run', '--no-pub', ...WebRendererMode.skwasm.toCliDartDefines]),
             throwsToolExit(message: 'Skwasm renderer requires --wasm'),
           );
         },
