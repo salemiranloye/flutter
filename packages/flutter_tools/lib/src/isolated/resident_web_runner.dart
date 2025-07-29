@@ -276,7 +276,7 @@ class ResidentWebRunner extends ResidentRunner {
     try {
       return await asyncGuard(() async {
         final WebDevServerConfig originalConfig =
-        debuggingOptions.webDevServerConfig ?? const WebDevServerConfig();
+            debuggingOptions.webDevServerConfig ?? const WebDevServerConfig();
 
         final int resolvedPort = await resolvePort(originalConfig.port);
 
@@ -330,8 +330,7 @@ class ResidentWebRunner extends ResidentRunner {
           platform: _platform,
         );
         Uri url = await device!.devFS!.create();
-        if (updatedConfig.https?.certKeyPath != null &&
-            updatedConfig.https?.certPath != null) {
+        if (updatedConfig.https?.certKeyPath != null && updatedConfig.https?.certPath != null) {
           url = url.replace(scheme: 'https');
         }
         if (debuggingOptions.buildInfo.isDebug && !debuggingOptions.webUseWasm) {

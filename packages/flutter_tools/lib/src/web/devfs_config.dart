@@ -27,7 +27,9 @@ class WebDevServerConfig {
     final headers = <String, String>{};
     if (yaml['headers'] != null) {
       if (yaml['headers'] is! YamlList) {
-        throwToolExit('[WebDevServer] Headers must be a List of maps. Found ${yaml['headers'].runtimeType}');
+        throwToolExit(
+          '[WebDevServer] Headers must be a List of maps. Found ${yaml['headers'].runtimeType}',
+        );
       }
       final headersList = yaml['headers'] as YamlList;
       for (final Object? item in headersList) {
@@ -102,13 +104,19 @@ class WebDevServerConfig {
         final String fileContent = await webDevServerConfigFile.readAsString();
         final YamlDocument yamlDoc = loadYamlDocument(fileContent);
         final YamlNode contents = yamlDoc.contents;
-        if (contents is! YamlMap || !contents.containsKey('server') || contents['server'] is! YamlMap) {
-           throwToolExit('"[WebDevServer] $webDevServerConfigFilePath" file is missing or malformed.');
+        if (contents is! YamlMap ||
+            !contents.containsKey('server') ||
+            contents['server'] is! YamlMap) {
+          throwToolExit(
+            '"[WebDevServer] $webDevServerConfigFilePath" file is missing or malformed.',
+          );
         }
 
         final serverYaml = contents['server'] as YamlMap;
         fileConfig = WebDevServerConfig.fromYaml(serverYaml);
-        globals.printStatus('\n [WebDevServer] Loaded configuration from $webDevServerConfigFilePath');
+        globals.printStatus(
+          '\n [WebDevServer] Loaded configuration from $webDevServerConfigFilePath',
+        );
         globals.printTrace(fileConfig.toString());
       } on Exception catch (e) {
         throwToolExit('[WebDevServer] Error: Failed to parse $webDevServerConfigFilePath: $e');
@@ -117,11 +125,13 @@ class WebDevServerConfig {
 
     HttpsConfig? httpsOverride;
     if (overrideTlsCertPath != null || overrideTlsCertKeyPath != null) {
-      httpsOverride = HttpsConfig(certPath: overrideTlsCertPath, certKeyPath: overrideTlsCertKeyPath);
+      httpsOverride = HttpsConfig(
+        certPath: overrideTlsCertPath,
+        certKeyPath: overrideTlsCertKeyPath,
+      );
     }
 
     final combinedHeaders = <String, String>{...fileConfig.headers, ...?extraHeaders};
-
 
     return fileConfig.copyWith(
       host: overrideHostname,
@@ -173,7 +183,9 @@ class HttpsConfig {
 
   factory HttpsConfig.fromYaml(YamlMap yaml) {
     if (yaml['cert-path'] is! String && yaml['cert-path'] != null) {
-      throwToolExit('[WebDevServer] Https cert-path must be a String. Found ${yaml['cert-path'].runtimeType}');
+      throwToolExit(
+        '[WebDevServer] Https cert-path must be a String. Found ${yaml['cert-path'].runtimeType}',
+      );
     }
     if (yaml['cert-key-path'] is! String && yaml['cert-key-path'] != null) {
       throwToolExit(
