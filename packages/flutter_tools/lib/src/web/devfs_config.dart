@@ -20,7 +20,7 @@ class WebDevServerConfig {
   const WebDevServerConfig({
     this.headers = const <String, String>{},
     this.host = 'any',
-    this.port,
+    this.port = 0,
     this.https,
     this.proxy = const <ProxyRule>[],
   });
@@ -81,16 +81,16 @@ class WebDevServerConfig {
 
     return WebDevServerConfig(
       headers: headers,
-      host: yaml['host'] as String?,
-      port: yaml['port'] as int?,
+      host: yaml['host'] as String,
+      port: yaml['port'] as int,
       https: yaml['https'] == null ? null : HttpsConfig.fromYaml(yaml['https'] as YamlMap),
       proxy: proxyRules,
     );
   }
 
   final Map<String, String> headers;
-  final String? host;
-  final int? port;
+  final String host;
+  final int port;
   final HttpsConfig? https;
   final List<ProxyRule> proxy;
 
@@ -240,7 +240,7 @@ Future<WebDevServerConfig> loadWebDevServerConfig({
 
   return WebDevServerConfig(
     host: finalHost,
-    port: finalPort,
+    port: finalPort ?? 0,
     https: finalHttpsConfig,
     headers: finalHeaders,
     proxy: fileConfig.proxy,
