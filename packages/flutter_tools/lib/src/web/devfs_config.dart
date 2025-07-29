@@ -13,7 +13,7 @@ import '../base/file_system.dart' as fs;
 import '../globals.dart' as globals;
 import 'devfs_proxy.dart';
 
-const devConfigFilePath = 'web_dev_config.yaml';
+const webDevServerConfigFilePath = 'web_dev_config.yaml';
 
 @immutable
 class WebDevServerConfig {
@@ -97,7 +97,7 @@ class WebDevServerConfig {
   @override
   String toString() {
     return '''
-  DevConfig:
+  WebDevServerConfig:
   headers: $headers
   host: $host
   port: $port
@@ -141,7 +141,7 @@ T? _getOverriddenValue<T>(String filedName, T? fileValue, T? cliValue) {
   if (cliValue != null) {
     if (fileValue != null && cliValue != fileValue) {
       globals.printStatus(
-        'Overriding $filedName from $devConfigFilePath ($fileValue) with command-line argument ($cliValue)',
+        'Overriding $filedName from $webDevServerConfigFilePath ($fileValue) with command-line argument ($cliValue)',
       );
     }
     return cliValue;
@@ -149,7 +149,7 @@ T? _getOverriddenValue<T>(String filedName, T? fileValue, T? cliValue) {
   return fileValue;
 }
 
-Future<WebDevServerConfig> loadDevConfig({
+Future<WebDevServerConfig> loadWebDevServerConfig({
   String? hostname,
   String? port,
   String? tlsCertPath,
@@ -158,19 +158,19 @@ Future<WebDevServerConfig> loadDevConfig({
   int? debugPort,
   List<String>? browserFlags,
 }) async {
-  final fs.File devConfigFile = globals.fs.file(devConfigFilePath);
+  final fs.File webDevServerConfigFile = globals.fs.file(webDevServerConfigFilePath);
   var fileConfig = const WebDevServerConfig();
 
-  if (!devConfigFile.existsSync()) {
-    globals.printStatus('No $devConfigFilePath found');
+  if (!webDevServerConfigFile.existsSync()) {
+    globals.printStatus('No $webDevServerConfigFilePath found');
   } else {
     try {
-      final String devConfigContent = await devConfigFile.readAsString();
-      final YamlDocument yamlDoc = loadYamlDocument(devConfigContent);
+      final String fileContent = await webDevServerConfigFile.readAsString();
+      final YamlDocument yamlDoc = loadYamlDocument(fileContent);
       final YamlNode contents = yamlDoc.contents;
       if (contents is! YamlMap) {
         throw YamlException(
-          '$devConfigFilePath file found, but it must be a YAML map (e.g., "server:"). Found a ${contents.runtimeType} instead.',
+          '$webDevServerConfigFilePath file found, but it must be a YAML map (e.g., "server:"). Found a ${contents.runtimeType} instead.',
           contents.span,
         );
       }
@@ -180,20 +180,20 @@ Future<WebDevServerConfig> loadDevConfig({
         //     ? (contents['server'] as YamlNode).span
         //     : contents.span;
         throw YamlException(
-          '"$devConfigFilePath" file found, but the "server" key is missing or malformed. It must be a YAML map.',
+          '"$webDevServerConfigFilePath" file found, but the "server" key is missing or malformed. It must be a YAML map.',
           null,
         );
       }
 
       final serverYaml = contents['server'] as YamlMap;
       fileConfig = WebDevServerConfig.fromYaml(serverYaml);
-      globals.printStatus('\nLoaded configuration from $devConfigFilePath');
+      globals.printStatus('\nLoaded configuration from $webDevServerConfigFilePath');
       globals.printTrace(fileConfig.toString());
     } on YamlException catch (e) {
-      globals.printError('Error: Failed to parse $devConfigFilePath: ${e.message} ${e.span}');
+      globals.printError('Error: Failed to parse $webDevServerConfigFilePath: ${e.message} ${e.span}');
       rethrow;
     } on Exception catch (e) {
-      globals.printError('An unexpected error occurred while reading $devConfigFilePath: $e');
+      globals.printError('An unexpected error occurred while reading $webDevServerConfigFilePath: $e');
       globals.printStatus(
         'Reverting to default flutter_tools web server configuration due to unexpected error.',
       );
@@ -229,7 +229,7 @@ Future<WebDevServerConfig> loadDevConfig({
     for (final MapEntry<String, String> entry in headers.entries) {
       if (fileConfig.headers.containsKey(entry.key)) {
         globals.printStatus(
-          'Overriding headers "${entry.key}" from $devConfigFilePath ("${fileConfig.headers[entry.key]}") with command-line argument("${entry.value}").',
+          'Overriding headers "${entry.key}" from $webDevServerConfigFilePath ("${fileConfig.headers[entry.key]}") with command-line argument("${entry.value}").',
         );
       } else {
         globals.printStatus('Adding header "${entry.key}" from command-line arguments.');
