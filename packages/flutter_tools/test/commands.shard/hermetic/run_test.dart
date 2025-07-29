@@ -965,7 +965,6 @@ void main() {
             'run',
             '--no-pub',
             '--no-hot',
-            '--no-resident',
             '--web-header',
             'foo=bar',
           ]);
@@ -993,7 +992,7 @@ void main() {
           await expectLater(
             () => createTestCommandRunner(
               command,
-            ).run(<String>['run', '--no-pub', '--no-hot', '--no-resident', '--web-header', 'foo']),
+            ).run(<String>['run', '--no-pub', '--no-hot', '--web-header', 'foo']),
             throwsToolExit(message: 'Invalid web headers: foo'),
           );
         },
@@ -1020,7 +1019,6 @@ void main() {
               'run',
               '--no-pub',
               '--no-hot',
-              '--no-resident',
               '--web-header',
               'hurray/headers=flutter',
             ]),
@@ -1045,7 +1043,7 @@ void main() {
           await expectLater(
             () => createTestCommandRunner(
               command,
-            ).run(<String>['run', '--no-pub', '--no-resident', '--wasm']),
+            ).run(<String>['run', '--no-pub', '--wasm']),
             throwsToolExit(message: '--wasm is only supported on the web platform'),
           );
         },
@@ -1067,7 +1065,6 @@ void main() {
             () => createTestCommandRunner(command).run(<String>[
               'run',
               '--no-pub',
-              '--no-resident',
               ...WebRendererMode.skwasm.toCliDartDefines,
             ]),
             throwsToolExit(message: 'Skwasm renderer requires --wasm'),
@@ -1091,7 +1088,6 @@ void main() {
             'run',
             '--no-pub',
             '--no-hot',
-            '--no-resident',
             '--web-header',
             'hurray=flutter,flutter=hurray',
           ]);
@@ -1511,7 +1507,6 @@ class FakeDevice extends Fake implements Device {
   @override
   String get displayName => name;
 
-  // THIS IS A KEY FIX
   @override
   Future<TargetPlatform> get targetPlatform async => _targetPlatform;
 

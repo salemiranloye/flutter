@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
@@ -31,7 +30,7 @@ class WebDevServerConfig {
         throwToolExit('[WebDevServer] Headers must be a List of maps. Found ${yaml['headers'].runtimeType}');
       }
       final headersList = yaml['headers'] as YamlList;
-      for (final dynamic item in headersList) {
+      for (final Object? item in headersList) {
         if (item is! YamlMap) {
           throwToolExit(
             '[WebDevServer] Each header entry must be a map with "name" and "value" keys. Found ${item.runtimeType}',
@@ -41,8 +40,8 @@ class WebDevServerConfig {
         if (!headerMap.containsKey('name') || !headerMap.containsKey('value')) {
           throwToolExit('[WebDevServer] Each header entry must contain "name" and "value" keys.');
         }
-        final dynamic name = headerMap['name'];
-        final dynamic value = headerMap['value'];
+        final Object? name = headerMap['name'];
+        final Object? value = headerMap['value'];
 
         if (name is! String || value is! String) {
           throwToolExit(
