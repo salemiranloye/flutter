@@ -276,17 +276,11 @@ class ResidentWebRunner extends ResidentRunner {
     try {
       return await asyncGuard(() async {
         final WebDevServerConfig originalConfig =
-            debuggingOptions.webDevServerConfig ?? const WebDevServerConfig();
+        debuggingOptions.webDevServerConfig ?? const WebDevServerConfig();
 
         final int resolvedPort = await resolvePort(originalConfig.port);
 
-        final updatedConfig = WebDevServerConfig(
-          host: originalConfig.host,
-          port: resolvedPort,
-          headers: originalConfig.headers,
-          https: originalConfig.https,
-          proxy: originalConfig.proxy,
-        );
+        final WebDevServerConfig updatedConfig = originalConfig.copyWith(port: resolvedPort);
         final ExpressionCompiler? expressionCompiler =
             debuggingOptions.webEnableExpressionEvaluation
             ? WebExpressionCompiler(device!.generator!, fileSystem: _fileSystem)
