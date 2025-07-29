@@ -651,6 +651,7 @@ class RunCommand extends RunCommandBase {
       throwToolExit(null);
     }
     final WebDevServerConfig? webDevServerConfig = await getWebDevServerConfig();
+    final webMode = webDevServerConfig != null;
     if (globals.deviceManager!.hasSpecifiedAllDevices && runningWithPrebuiltApplication) {
       throwToolExit(
         'Using "-d all" with "--${FlutterOptions.kUseApplicationBinary}" is not supported',
@@ -668,7 +669,7 @@ class RunCommand extends RunCommandBase {
       _deviceDeprecationBehavior = DeprecationBehavior.exit;
     }
 
-    if (useWasm && webDevServerConfig == null) {
+    if (useWasm && !webMode) {
       throwToolExit('--wasm is only supported on the web platform');
     }
 
@@ -697,12 +698,12 @@ class RunCommand extends RunCommandBase {
     required FlutterProject flutterProject,
   }) async {
     final WebDevServerConfig? webDevServerConfig = await getWebDevServerConfig();
-    final web = webDevServerConfig != null;
+    final webMode = webDevServerConfig != null;
     final DebuggingOptions debuggingOptions = await createDebuggingOptions(
       webDevServerConfig: webDevServerConfig,
     );
 
-    if (hotMode && webDevServerConfig == null) {
+    if (hotMode && !webMode) {
       return HotRunner(
         flutterDevices,
         target: targetFile,
@@ -717,7 +718,7 @@ class RunCommand extends RunCommandBase {
         analytics: globals.analytics,
         nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
       );
-    } else if (web) {
+    } else if (webMode) {
       return webRunnerFactory!.createWebRunner(
         flutterDevices.single,
         target: targetFile,
