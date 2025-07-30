@@ -6,23 +6,48 @@ import 'package:yaml/yaml.dart';
 import '../base/logger.dart';
 import '../globals.dart' as globals;
 
-abstract class ProxyRule {
+/// Represents a rule for proxying requests based on a specific pattern.
+/// Subclasses must implement the [matches], [replace], and [getTargetUri] methods.
+sealed class ProxyRule {
+  /// Checks if the given [path] matches the rule's pattern.
   bool matches(String path);
-  Uri getTargetUrl(String path);
 
+  /// Replaces the matched part of the [path] according to the rule's logic.
+  /// If no replacement is needed, it returns the original path.
+  String replace(String path);
+
+  /// Returns the target URI to which the request should be proxied.
+  Uri getTargetUri();
+
+  /// If both or neither 'prefix' and 'regex' are defined, it logs an error and returns null.
+  /// Otherwise, it tries to create a [PrefixProxyRule] or [RegexProxyRule] based on the [yaml] keys.
   static ProxyRule? fromYaml(YamlMap yaml, {Logger? logger}) {
-    if (PrefixProxyRule.canHandle(yaml)) {
-      return PrefixProxyRule.fromYaml(yaml, logger: logger);
+    final Logger effectiveLogger = logger ?? globals.logger;
+    if (PrefixProxyRule.canHandle(yaml) && RegexProxyRule.canHandle(yaml)) {
+      effectiveLogger.printError(
+        'Both "prefix" and "regex" are defined in the proxy rule YAML. Only one should be used.',
+      );
+      return null;
+    } else if (PrefixProxyRule.canHandle(yaml)) {
+      return PrefixProxyRule.fromYaml(yaml, effectiveLogger);
     } else if (RegexProxyRule.canHandle(yaml)) {
-      return RegexProxyRule.fromYaml(yaml, logger: logger);
+      return RegexProxyRule.fromYaml(yaml, effectiveLogger);
     } else {
-      logger?.printError('Invalid proxy rule in YAML: $yaml');
+      effectiveLogger.printError('Invalid proxy rule in YAML: $yaml');
       return null;
     }
   }
 }
 
+/// A [ProxyRule] implementation that uses regular expressions for matching and
+/// replacement.
+///
+/// This rule matches paths against a provided regular expression [_pattern].
+/// If a [_replacement] string is provided, it replaces parts of the matched
+/// path based on regex group capturing.
 class RegexProxyRule implements ProxyRule {
+  /// Creates a [RegexProxyRule] with the given regular expression [pattern],
+  /// [target] URI base, and optional [replacement] string.
   RegexProxyRule({required RegExp pattern, required String target, String? replacement})
     : _pattern = pattern,
       _target = target,
@@ -37,7 +62,8 @@ class RegexProxyRule implements ProxyRule {
     return _pattern.hasMatch(path);
   }
 
-  String _replace(String path) {
+  @override
+  String replace(String path) {
     if (_replacement == null) {
       return path;
     }
@@ -51,10 +77,9 @@ class RegexProxyRule implements ProxyRule {
   }
 
   @override
-  Uri getTargetUrl(String path) {
+  Uri getTargetUri() {
     final Uri targetBaseUri = Uri.parse(_target);
-    final String rewrittenRequest = _replace(path);
-    return targetBaseUri.resolve(rewrittenRequest);
+    return targetBaseUri;
   }
 
   @override
@@ -62,17 +87,22 @@ class RegexProxyRule implements ProxyRule {
     return '{pattern: ${_pattern.pattern}, target: $_target, replace: ${_replacement ?? 'null'}}';
   }
 
+  /// Checks if the given [yaml] can be handled by this rule.
+  /// It requires the 'regex' key to be present and non-empty.
   static bool canHandle(YamlMap yaml) {
     return yaml.containsKey('regex') &&
         yaml['regex'] is String &&
         (yaml['regex'] as String).isNotEmpty;
   }
 
-  static RegexProxyRule? fromYaml(YamlMap yaml, {Logger? logger}) {
+  /// Attempts to create a [RegexProxyRule] from the provided [yaml] map.
+  /// If the 'regex' or 'target' keys are missing or invalid, it logs an error
+  /// and returns null.
+  /// If the 'regex' is invalid, it logs a warning and treats it as a string.
+  static RegexProxyRule? fromYaml(YamlMap yaml, Logger effectiveLogger) {
     final regex = yaml['regex'] as String?;
     final target = yaml['target'] as String?;
     final replacement = yaml['replace'] as String?;
-    final Logger effectiveLogger = logger ?? globals.logger;
     if (regex == null || regex.isEmpty) {
       return null;
     } else if (target == null || target.isEmpty) {
@@ -92,7 +122,11 @@ class RegexProxyRule implements ProxyRule {
   }
 }
 
+/// A [ProxyRule] implementation that matches paths starting with a specific prefix.
+/// If a [_replacement] string is provided, it replaces the prefix in the matched path.
 class PrefixProxyRule implements ProxyRule {
+  /// Creates a [PrefixProxyRule] with the given [pattern] prefix, [target] URI base,
+  /// and optional [replacement] string.
   PrefixProxyRule({required String pattern, required String target, String? replacement})
     : _pattern = pattern,
       _target = target,
@@ -107,7 +141,8 @@ class PrefixProxyRule implements ProxyRule {
     return path.startsWith(_pattern);
   }
 
-  String _replace(String path) {
+  @override
+  String replace(String path) {
     if (_replacement == null) {
       return path;
     }
@@ -115,10 +150,9 @@ class PrefixProxyRule implements ProxyRule {
   }
 
   @override
-  Uri getTargetUrl(String path) {
+  Uri getTargetUri() {
     final Uri targetBaseUri = Uri.parse(_target);
-    final String rewrittenRequest = _replace(path);
-    return targetBaseUri.replace(path: rewrittenRequest);
+    return targetBaseUri;
   }
 
   @override
@@ -126,18 +160,21 @@ class PrefixProxyRule implements ProxyRule {
     return '{prefix: $_pattern, target: $_target, replace: ${_replacement ?? 'null'}}';
   }
 
+  /// Checks if the given [yaml] can be handled by this rule.
+  /// It requires the 'prefix' key to be present and non-empty.
   static bool canHandle(YamlMap yaml) {
     return yaml.containsKey('prefix') &&
         yaml['prefix'] is String &&
         (yaml['prefix'] as String).isNotEmpty;
   }
 
-  static PrefixProxyRule? fromYaml(YamlMap yaml, {Logger? logger}) {
+  /// Attempts to create a [PrefixProxyRule] from the provided [yaml] map.
+  /// If the 'prefix' or 'target' keys are missing or invalid, it logs an error
+  /// and returns null.
+  static PrefixProxyRule? fromYaml(YamlMap yaml, Logger effectiveLogger) {
     final pattern = yaml['prefix'] as String?;
     final target = yaml['target'] as String?;
     final replacement = yaml['replace'] as String?;
-    final Logger effectiveLogger = logger ?? globals.logger;
-
     if (pattern == null || pattern.isEmpty) {
       return null;
     } else if (target == null || target.isEmpty) {
