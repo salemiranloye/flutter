@@ -890,7 +890,7 @@ void main() {
         outputFile.parent.childFile('a.map').writeAsStringSync('{}');
         outputFile.parent.childFile('a.metadata').writeAsStringSync('{}');
 
-        const webDevServerConfig = WebDevServerConfig(host: 'any');
+        const webDevServerConfig = WebDevServerConfig();
         final webDevFS = WebDevFS(
           packagesFilePath: '.dart_tool/package_config.json',
           urlTunneller: null,
