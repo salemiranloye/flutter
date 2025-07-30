@@ -25,7 +25,7 @@ sealed class ProxyRule {
     final Logger effectiveLogger = logger ?? globals.logger;
     if (PrefixProxyRule.canHandle(yaml) && RegexProxyRule.canHandle(yaml)) {
       effectiveLogger.printError(
-        'Both "prefix" and "regex" are defined in the proxy rule YAML. Only one should be used.',
+        '[PROXY] Both "prefix" and "regex" are defined in the proxy rule YAML. Only one should be used.',
       );
       return null;
     } else if (PrefixProxyRule.canHandle(yaml)) {
@@ -33,7 +33,7 @@ sealed class ProxyRule {
     } else if (RegexProxyRule.canHandle(yaml)) {
       return RegexProxyRule.fromYaml(yaml, effectiveLogger);
     } else {
-      effectiveLogger.printError('Invalid proxy rule in YAML: $yaml');
+      effectiveLogger.printError('[PROXY] Invalid proxy rule in YAML: $yaml');
       return null;
     }
   }
@@ -106,7 +106,9 @@ class RegexProxyRule implements ProxyRule {
     if (regex == null || regex.isEmpty) {
       return null;
     } else if (target == null || target.isEmpty) {
-      effectiveLogger.printError("Invalid 'target' for 'regex': $regex. 'target' cannot be null");
+      effectiveLogger.printError(
+        "[PROXY] Invalid 'target' for 'regex': $regex. 'target' cannot be null",
+      );
       return null;
     }
     RegExp? pattern;
@@ -115,7 +117,7 @@ class RegexProxyRule implements ProxyRule {
     } on FormatException catch (e) {
       pattern = RegExp(RegExp.escape(regex));
       effectiveLogger.printWarning(
-        "Invalid regex pattern in 'regex': '$regex'. Treating $regex as string. Error: $e",
+        "[PROXY] Invalid regex pattern in 'regex': '$regex'. Treating $regex as string. Error: $e",
       );
     }
     return RegexProxyRule(pattern: pattern, target: target, replacement: replacement?.trim());
@@ -159,7 +161,7 @@ class PrefixProxyRule implements ProxyRule {
   String toString() {
     return '{prefix: $_pattern, target: $_target, replace: ${_replacement ?? 'null'}}';
   }
-
+  
   /// Checks if the given [yaml] can be handled by this rule.
   /// It requires the 'prefix' key to be present and non-empty.
   static bool canHandle(YamlMap yaml) {
@@ -179,7 +181,7 @@ class PrefixProxyRule implements ProxyRule {
       return null;
     } else if (target == null || target.isEmpty) {
       effectiveLogger.printError(
-        "Invalid 'target' for 'prefix': $pattern. 'target' cannot be null",
+        "[PROXY] Invalid 'target' for 'prefix': $pattern. 'target' cannot be null",
       );
       return null;
     }

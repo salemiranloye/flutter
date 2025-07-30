@@ -1127,7 +1127,7 @@ void main() {
         outputFile.parent.childFile('a.json').writeAsStringSync('{}');
         outputFile.parent.childFile('a.map').writeAsStringSync('{}');
         outputFile.parent.childFile('a.metadata').writeAsStringSync('{}');
-        const webDevServerConfig = WebDevServerConfig();
+        const webDevServerConfig = WebDevServerConfig(host: 'any');
         final webDevFS = WebDevFS(
           // if this is any other value, we will do a real ip lookup
           packagesFilePath: '.dart_tool/package_config.json',

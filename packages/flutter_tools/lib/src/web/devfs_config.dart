@@ -54,10 +54,10 @@ class WebDevServerConfig {
       }
     }
     if (yaml['host'] is! String && yaml['host'] != null) {
-      throwToolExit('[WebDevServer] host must be a String. Found ${yaml['host'].runtimeType}');
+      throwToolExit('[WebDevServer] Host must be a String. Found ${yaml['host'].runtimeType}');
     }
     if (yaml['port'] is! int && yaml['port'] != null) {
-      throwToolExit('[WebDevServer] port must be an int. Found ${yaml['port'].runtimeType}');
+      throwToolExit('[WebDevServer] Port must be an int. Found ${yaml['port'].runtimeType}');
     }
     if (yaml['https'] is! YamlMap && yaml['https'] != null) {
       throwToolExit('[WebDevServer] Https must be a Map. Found ${yaml['https'].runtimeType}');
@@ -66,7 +66,7 @@ class WebDevServerConfig {
     final proxyRules = <ProxyRule>[];
     if (yaml['proxy'] != null) {
       if (yaml['proxy'] is! YamlList) {
-        throwToolExit('[WebDevServer]Proxy must be a list. Found ${yaml['proxy'].runtimeType}');
+        throwToolExit('[WebDevServer] Proxy must be a list. Found ${yaml['proxy'].runtimeType}');
       }
       final proxyList = yaml['proxy'] as YamlList;
       for (final dynamic item in proxyList) {

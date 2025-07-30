@@ -58,7 +58,7 @@ shelf.Middleware proxyMiddleware(List<ProxyRule> effectiveProxy) {
             return proxyResponse;
           } on Exception catch (e) {
             globals.logger.printError(
-              '[PROXY] error for $finalTargetUrl: $e. Allowing fall-through.',
+              '[PROXY] Error for $finalTargetUrl: $e. Allowing fall-through.',
             );
 
             return innerHandler(request);
