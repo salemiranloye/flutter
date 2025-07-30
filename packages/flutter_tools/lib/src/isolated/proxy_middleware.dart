@@ -35,35 +35,27 @@ shelf.Request proxyRequest(shelf.Request originalRequest, Uri finalTargetUrl) {
 shelf.Middleware proxyMiddleware(List<ProxyRule> effectiveProxy) {
   return (shelf.Handler innerHandler) {
     return (shelf.Request request) async {
-      String requestPath = request.requestedUri.path;
+      final String requestPath = request.requestedUri.path;
       for (final rule in effectiveProxy) {
         if (rule.matches(requestPath)) {
-          final Uri targetBaseUri = Uri.parse(rule.target);
-          final String rewrittenRequest = rule.replace(requestPath);
-          final Uri finalTargetUrl = targetBaseUri.resolve(rewrittenRequest);
+          final Uri targetUrl = rule.getTargetUrl(requestPath);
           try {
-            final shelf.Request proxyBackendRequest = proxyRequest(request, finalTargetUrl);
-            final shelf.Response proxyResponse = await proxyHandler(targetBaseUri)(
-              proxyBackendRequest,
-            );
+            final shelf.Request proxyBackendRequest = proxyRequest(request, targetUrl);
+            final shelf.Response proxyResponse = await proxyHandler(targetUrl)(proxyBackendRequest);
             final isInternalRequest = proxyResponse.headers['sec-fetch-mode'] == 'no-cors';
-            if (!internalRequest) {
-              globals.logger.printStatus(
-                '[PROXY] Matched "$requestPath". Requesting "$finalTargetUrl"',
-              );
+            if (!isInternalRequest) {
+              globals.logger.printStatus('[PROXY] Matched "$requestPath". Requesting "$targetUrl"');
               globals.logger.printTrace('[PROXY] Matched with proxy rule: $rule');
             }
             if (proxyResponse.statusCode == 404) {
-              if (!internalRequest) {
-                globals.printTrace('[PROXY] "$finalTargetUrl" responded with status 404');
+              if (!isInternalRequest) {
+                globals.printTrace('[PROXY] "$targetUrl" responded with status 404');
               }
               return innerHandler(request);
             }
             return proxyResponse;
           } on Exception catch (e) {
-            globals.logger.printError(
-              '[PROXY] error for $finalTargetUrl: $e. Allowing fall-through.',
-            );
+            globals.logger.printError('[PROXY] error for $targetUrl: $e. Allowing fall-through.');
 
             return innerHandler(request);
           }
