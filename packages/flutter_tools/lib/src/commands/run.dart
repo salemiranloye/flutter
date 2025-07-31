@@ -718,7 +718,7 @@ class RunCommand extends RunCommandBase {
         analytics: globals.analytics,
         nativeAssetsYamlFile: stringArg(FlutterOptions.kNativeAssetsYamlFile),
       );
-    } else if (devConfig != null) {
+    } else if (webMode) {
       return webRunnerFactory!.createWebRunner(
         flutterDevices.single,
         target: targetFile,
